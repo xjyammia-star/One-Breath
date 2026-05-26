@@ -1,3 +1,5 @@
+export const config = { runtime: 'nodejs' }
+
 export default async function handler(req: Request): Promise<Response> {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405 })
