@@ -1,0 +1,13 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
+  "installCommand": "npm install",
+  "framework": "vite",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ],
+  "env": {
+    "VITE_DEEPSEEK_API_KEY": "@deepseek-api-key",
+    "VITE_DEEPSEEK_BASE_URL": "https://api.deepseek.com"
+  }
+}
