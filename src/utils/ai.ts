@@ -1,6 +1,4 @@
 // src/utils/ai.ts
-// DeepSeek V3 API 调用 + RAG检索
-
 import { UserProfile, BaZi, Module, Lang } from '../types'
 import { GAN_WUXING, ZHI_WUXING, getWuXingScore } from './bazi'
 
@@ -11,10 +9,6 @@ interface AnalyzeParams {
   question: string
   lang: Lang
 }
-
-const DEEPSEEK_BASE_URL = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3'
-const DEEPSEEK_API_KEY  = import.meta.env.VITE_DEEPSEEK_API_KEY  || ''
-const DEEPSEEK_MODEL    = import.meta.env.VITE_DEEPSEEK_MODEL    || 'ep-20260516000733-j969v'
 
 /**
  * 构建用户命盘的系统上下文
@@ -107,17 +101,10 @@ Note: Your analysis draws from Chinese philosophical tradition as cultural wisdo
 }
 
 /**
- * 主分析函数
+ * 主分析函数 — 通过 /api/chat 中转调用（解决CORS问题）
  */
 export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string> {
   const { user, bazi, module, question, lang } = params
-
-  if (!DEEPSEEK_API_KEY) {
-    // 开发模式：返回示例回答
-    return lang === 'zh'
-      ? `【演示模式】请在 .env 文件中配置 VITE_DEEPSEEK_API_KEY。\n\n您询问：「${question}」\n\n根据您的命盘，日主${bazi.dayGan}（${GAN_WUXING[bazi.dayGan]}）为命局核心。天地之气循环往复，生生不息。道可道，非常道。`
-      : `[Demo mode] Please set VITE_DEEPSEEK_API_KEY in your .env file.\n\nYour question: "${question}"\n\nYour day master ${bazi.dayGan} (${GAN_WUXING[bazi.dayGan]} element) anchors your chart. The Tao that can be told is not the eternal Tao.`
-  }
 
   const userContext = buildUserContext(user, bazi, lang)
   const systemPrompt = buildSystemPrompt(module, lang)
@@ -126,27 +113,22 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string
     ? `${userContext}\n\n【问题】${question}`
     : `${userContext}\n\n【Question】${question}`
 
-  const response = await fetch(`${DEEPSEEK_BASE_URL}/v1/chat/completions`, {
+  const response = await fetch('/api/chat', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user',   content: userMessage },
-      ],
-      max_tokens: 1200,
-      temperature: 0.7,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`DeepSeek API error: ${response.status}`)
+    throw new Error(`API error: ${response.status}`)
   }
 
   const data = await response.json()
-  return data.choices?.[0]?.message?.content || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
+  return data.choices?.[0]?.message?.content
+    || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
 }
