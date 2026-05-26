@@ -7,7 +7,7 @@
     { "source": "/(.*)", "destination": "/index.html" }
   ],
   "env": {
-    "VITE_DEEPSEEK_API_KEY": "@deepseek-api-key",
-    "VITE_DEEPSEEK_BASE_URL": "https://api.deepseek.com"
+    "VITE_DEEPSEEK_BASE_URL": "https://ark.cn-beijing.volces.com/api/v3",
+    "VITE_DEEPSEEK_MODEL":    "ep-20260516000733-j969v"
   }
 }

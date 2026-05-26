@@ -12,8 +12,9 @@ interface AnalyzeParams {
   lang: Lang
 }
 
-const DEEPSEEK_BASE_URL = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
+const DEEPSEEK_BASE_URL = import.meta.env.VITE_DEEPSEEK_BASE_URL || 'https://ark.cn-beijing.volces.com/api/v3'
 const DEEPSEEK_API_KEY  = import.meta.env.VITE_DEEPSEEK_API_KEY  || ''
+const DEEPSEEK_MODEL    = import.meta.env.VITE_DEEPSEEK_MODEL    || 'ep-20260516000733-j969v'
 
 /**
  * 构建用户命盘的系统上下文
@@ -132,7 +133,7 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string
       'Authorization': `Bearer ${DEEPSEEK_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'deepseek-chat',
+      model: DEEPSEEK_MODEL,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user',   content: userMessage },
