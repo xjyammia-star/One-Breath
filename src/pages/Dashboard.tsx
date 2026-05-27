@@ -1,5 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState } from 'react'
+import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
 import { analyzeWithDeepSeek } from '../utils/ai'
 import { getBaZi } from '../utils/bazi'
@@ -10,6 +11,7 @@ interface Props {
   user: UserProfile
   onBack: () => void
   onReset: () => void
+  onAdmin?: () => void
 }
 
 const text = {
@@ -81,8 +83,9 @@ const text = {
   },
 }
 
-export default function Dashboard({ lang, setLang, user, onBack, onReset }: Props) {
+export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmin }: Props) {
   const t = text[lang]
+  const { user: authUser, logout } = useAuth()
   const [activeModule, setActiveModule] = useState<Module>('self')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
@@ -141,6 +144,14 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset }: Prop
         <div className="dash-header-right">
           <button className="text-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}>
             {t.langSwitch}
+          </button>
+          {authUser?.role === 'admin' && onAdmin && (
+            <button className="text-btn" onClick={onAdmin}>
+              {lang === 'zh' ? '管理后台' : 'Admin'}
+            </button>
+          )}
+          <button className="text-btn" onClick={() => { logout(); onBack() }}>
+            {lang === 'zh' ? '退出' : 'Logout'}
           </button>
           <button className="text-btn danger" onClick={onReset}>{t.reset}</button>
         </div>
