@@ -10,6 +10,15 @@ interface AnalyzeParams {
   lang: Lang
 }
 
+// 自定义错误类型，方便 Dashboard 判断原因
+export class ApiError extends Error {
+  code: string
+  constructor(message: string, code: string) {
+    super(message)
+    this.code = code
+  }
+}
+
 function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
   const wuxing = getWuXingScore(bazi)
   const wuxingStr = Object.entries(wuxing)
@@ -39,7 +48,6 @@ function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
 ${wuxingStr}
 `.trim()
   } else {
-    const currentYear = new Date().getFullYear()
     return `
 【User's Ba Zi Chart】
 Name: ${user.name}
@@ -121,17 +129,33 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string
     ? `${userContext}\n\n【问题】${question}`
     : `${userContext}\n\n【Question】${question}`
 
+  // 从 localStorage 读取登录 token（未登录则为 null）
+  const token = localStorage.getItem('token')
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
   const response = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify({
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
+      module,
     }),
   })
 
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`)
+    const err = await response.json().catch(() => ({}))
+    // 抛出带 code 的错误，让 Dashboard 判断原因并显示对应浮层
+    throw new ApiError(
+      err.error || `API error: ${response.status}`,
+      err.code || (response.status === 401 ? 'LOGIN_REQUIRED' : 'UNKNOWN')
+    )
   }
 
   const data = await response.json()

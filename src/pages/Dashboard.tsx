@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
-import { analyzeWithDeepSeek } from '../utils/ai'
+import { analyzeWithDeepSeek, ApiError } from '../utils/ai'
 import { getBaZi } from '../utils/bazi'
 
 interface Props {
@@ -12,15 +12,19 @@ interface Props {
   onBack: () => void
   onReset: () => void
   onAdmin?: () => void
+  onLogin?: () => void    // 跳转登录页
 }
+
+// 需要登录才能使用的模块
+const LOGIN_REQUIRED_MODULES: Module[] = ['people', 'world']
 
 const text = {
   zh: {
     greeting: (name: string) => `${name}的命盘`,
     modules: [
-      { id: 'self' as Module,   icon: '☲', name: '与己',   sub: '自身命盘·五行·格局' },
-      { id: 'people' as Module, icon: '☯', name: '与人',   sub: '关系·合婚·人际' },
-      { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·世界能量' },
+      { id: 'self' as Module,   icon: '☲', name: '与己',   sub: '自身命盘·五行·格局',  locked: false },
+      { id: 'people' as Module, icon: '☯', name: '与人',   sub: '关系·合婚·人际',       locked: true  },
+      { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·世界能量',   locked: true  },
     ],
     birthInfo: '生辰',
     lunarLabel: '农历',
@@ -46,14 +50,25 @@ const text = {
     reset: '重置命盘',
     langSwitch: 'EN',
     back: '← 主页',
+    login: '登录',
+    logout: '退出',
+    admin: '管理后台',
     genderMap: { male: '男', female: '女', other: '其他' },
+    // 浮层文字
+    loginRequired: '此功能需要登录',
+    loginRequiredDesc: '登录后即可使用「与人」「与世界」模块，并获得每日免费次数。',
+    goLogin: '登录 / 注册',
+    cancel: '暂不登录',
+    limitReached: '今日次数已用完',
+    limitDesc: '您今日的免费次数已用完。登录账号后可获得更多次数，订阅会员可无限使用。',
+    goLoginForMore: '登录获取更多次数',
   },
   en: {
     greeting: (name: string) => `${name}'s Chart`,
     modules: [
-      { id: 'self' as Module,   icon: '☲', name: 'The Self',    sub: 'Birth chart · Elements · Pattern' },
-      { id: 'people' as Module, icon: '☯', name: 'Relations',   sub: 'Compatibility · Bonds · People' },
-      { id: 'world' as Module,  icon: '☰', name: 'The World',   sub: 'Timing · Annual cycle · Energy' },
+      { id: 'self' as Module,   icon: '☲', name: 'The Self',    sub: 'Birth chart · Elements · Pattern',  locked: false },
+      { id: 'people' as Module, icon: '☯', name: 'Relations',   sub: 'Compatibility · Bonds · People',    locked: true  },
+      { id: 'world' as Module,  icon: '☰', name: 'The World',   sub: 'Timing · Annual cycle · Energy',    locked: true  },
     ],
     birthInfo: 'Birth',
     lunarLabel: 'Lunar',
@@ -79,17 +94,32 @@ const text = {
     reset: 'Reset Chart',
     langSwitch: '中文',
     back: '← Home',
+    login: 'Login',
+    logout: 'Logout',
+    admin: 'Admin',
     genderMap: { male: 'Male', female: 'Female', other: 'Other' },
+    // modal text
+    loginRequired: 'Login Required',
+    loginRequiredDesc: 'Sign in to access Relations and The World modules, plus daily free readings.',
+    goLogin: 'Login / Register',
+    cancel: 'Maybe Later',
+    limitReached: 'Daily Limit Reached',
+    limitDesc: "You've used your free readings for today. Login for more, or subscribe for unlimited access.",
+    goLoginForMore: 'Login for More',
   },
 }
 
-export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmin }: Props) {
+// 浮层类型
+type ModalType = 'login_required' | 'limit_reached' | null
+
+export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmin, onLogin }: Props) {
   const t = text[lang]
   const { user: authUser, logout } = useAuth()
   const [activeModule, setActiveModule] = useState<Module>('self')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<AnalysisResult[]>([])
+  const [modal, setModal] = useState<ModalType>(null)
 
   const bazi = getBaZi(user.birthYear, user.birthMonth, user.birthDay, user.birthHour)
   const currentMod = t.modules.find(m => m.id === activeModule)!
@@ -97,9 +127,24 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
                : activeModule === 'people' ? t.peopleQuestions
                : t.worldQuestions
 
+  // 切换模块时检查是否需要登录
+  const handleModuleSwitch = (modId: Module) => {
+    if (LOGIN_REQUIRED_MODULES.includes(modId) && !authUser) {
+      setModal('login_required')
+      return
+    }
+    setActiveModule(modId)
+  }
+
   const handleSend = async (q?: string) => {
     const question = q || query
     if (!question.trim()) return
+
+    // 当前模块需要登录但未登录
+    if (LOGIN_REQUIRED_MODULES.includes(activeModule) && !authUser) {
+      setModal('login_required')
+      return
+    }
 
     setLoading(true)
     setQuery('')
@@ -119,12 +164,27 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
         response,
         timestamp: new Date().toISOString(),
       }, ...prev])
-    } catch {
+
+    } catch (err) {
+      // 根据错误码显示不同浮层
+      if (err instanceof ApiError) {
+        if (err.code === 'LOGIN_REQUIRED') {
+          setModal('login_required')
+          setLoading(false)
+          return
+        }
+        if (err.code === 'ANON_LIMIT_REACHED') {
+          setModal('limit_reached')
+          setLoading(false)
+          return
+        }
+      }
+      // 其他错误正常显示在结果区
       setResults(prev => [{
         module: activeModule,
         query: question,
         response: lang === 'zh'
-          ? '天机难测，请稍后再试。（API连接失败）'
+          ? '天机难测，请稍后再试。（连接失败）'
           : 'The oracle is momentarily silent. Please try again.',
         timestamp: new Date().toISOString(),
       }, ...prev])
@@ -135,7 +195,37 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
 
   return (
     <div className="dashboard">
-      {/* 顶栏 */}
+
+      {/* ── 提示浮层 ── */}
+      {modal && (
+        <div className="modal-overlay" onClick={() => setModal(null)}>
+          <div className="modal-box" onClick={e => e.stopPropagation()}>
+            <div className="modal-icon">☯</div>
+            <h3 className="modal-title">
+              {modal === 'login_required' ? t.loginRequired : t.limitReached}
+            </h3>
+            <p className="modal-desc">
+              {modal === 'login_required' ? t.loginRequiredDesc : t.limitDesc}
+            </p>
+            <div className="modal-actions">
+              <button
+                className="modal-btn-primary"
+                onClick={() => { setModal(null); onLogin?.() }}
+              >
+                {modal === 'login_required' ? t.goLogin : t.goLoginForMore}
+              </button>
+              <button
+                className="modal-btn-secondary"
+                onClick={() => setModal(null)}
+              >
+                {t.cancel}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 顶栏 ── */}
       <header className="dash-header">
         <div className="dash-header-left">
           <button className="text-btn" onClick={onBack}>{t.back}</button>
@@ -146,20 +236,26 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
             {t.langSwitch}
           </button>
           {authUser?.role === 'admin' && onAdmin && (
-            <button className="text-btn" onClick={onAdmin}>
-              {lang === 'zh' ? '管理后台' : 'Admin'}
+            <button className="text-btn" onClick={onAdmin}>{t.admin}</button>
+          )}
+          {authUser ? (
+            <button className="text-btn" onClick={() => { logout(); onBack() }}>
+              {t.logout}
+            </button>
+          ) : (
+            <button className="text-btn" onClick={onLogin}>
+              {t.login}
             </button>
           )}
-          <button className="text-btn" onClick={() => { logout(); onBack() }}>
-            {lang === 'zh' ? '退出' : 'Logout'}
-          </button>
           <button className="text-btn danger" onClick={onReset}>{t.reset}</button>
         </div>
       </header>
 
       <div className="dash-body">
-        {/* 左侧：用户信息 + 模块选择 */}
+
+        {/* ── 左侧：用户信息 + 模块选择 ── */}
         <aside className="dash-sidebar">
+
           {/* 命盘信息 */}
           <div className="profile-card">
             <div className="profile-avatar">
@@ -209,26 +305,31 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
             </div>
           </div>
 
-          {/* 模块选择 */}
+          {/* 模块选择：锁定的模块显示锁图标 */}
           <nav className="module-nav">
-            {t.modules.map(mod => (
-              <button
-                key={mod.id}
-                className={`module-nav-btn ${activeModule === mod.id ? 'active' : ''}`}
-                onClick={() => setActiveModule(mod.id)}
-              >
-                <span className="module-nav-icon">{mod.icon}</span>
-                <div className="module-nav-text">
-                  <span className="module-nav-name">{mod.name}</span>
-                  <span className="module-nav-sub">{mod.sub}</span>
-                </div>
-              </button>
-            ))}
+            {t.modules.map(mod => {
+              const isLocked = mod.locked && !authUser
+              return (
+                <button
+                  key={mod.id}
+                  className={`module-nav-btn ${activeModule === mod.id ? 'active' : ''} ${isLocked ? 'locked' : ''}`}
+                  onClick={() => handleModuleSwitch(mod.id)}
+                >
+                  <span className="module-nav-icon">{mod.icon}</span>
+                  <div className="module-nav-text">
+                    <span className="module-nav-name">{mod.name}</span>
+                    <span className="module-nav-sub">{mod.sub}</span>
+                  </div>
+                  {isLocked && <span className="module-lock">🔒</span>}
+                </button>
+              )
+            })}
           </nav>
         </aside>
 
-        {/* 右侧：问答区 */}
+        {/* ── 右侧：问答区 ── */}
         <main className="dash-main">
+
           {/* 模块标题 */}
           <div className="module-header">
             <span className="module-header-icon">{currentMod.icon}</span>

@@ -1,10 +1,12 @@
 // src/pages/Landing.tsx
 import { Lang } from '../types'
+import { useAuth } from '../utils/authContext'
 
 interface Props {
   lang: Lang
   setLang: (l: Lang) => void
   onEnter: () => void
+  onLogin: () => void      // 跳转登录页
   hasUser: boolean
 }
 
@@ -18,6 +20,9 @@ const text = {
     return: '返回命盘',
     modules: ['与己', '与人', '与世界'],
     moduleSubs: ['自身命盘·五行分析', '合婚·人际关系', '时运·世界能量'],
+    login: '登录 / 注册',
+    logout: '退出',
+    hi: '好，',
   },
   en: {
     title: 'One Breath',
@@ -28,25 +33,51 @@ const text = {
     return: 'Return to Chart',
     modules: ['The Self', 'Relations', 'The World'],
     moduleSubs: ['Birth chart · Five elements', 'Compatibility · Bonds', 'Timing · World energy'],
+    login: 'Login / Register',
+    logout: 'Logout',
+    hi: 'Hi, ',
   },
 }
 
-export default function Landing({ lang, setLang, onEnter, hasUser }: Props) {
+export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Props) {
   const t = text[lang]
+  const { user: authUser, logout } = useAuth()
 
   return (
     <div className="landing">
-      {/* 语言切换 */}
-      <div className="lang-switcher">
-        <button
-          className={lang === 'zh' ? 'active' : ''}
-          onClick={() => setLang('zh')}
-        >中文</button>
-        <span className="divider">|</span>
-        <button
-          className={lang === 'en' ? 'active' : ''}
-          onClick={() => setLang('en')}
-        >EN</button>
+      {/* 右上角：语言切换 + 登录按钮 */}
+      <div className="landing-topbar">
+        <div className="lang-switcher">
+          <button
+            className={lang === 'zh' ? 'active' : ''}
+            onClick={() => setLang('zh')}
+          >中文</button>
+          <span className="divider">|</span>
+          <button
+            className={lang === 'en' ? 'active' : ''}
+            onClick={() => setLang('en')}
+          >EN</button>
+        </div>
+
+        {/* 登录状态区域 */}
+        <div className="landing-auth-area">
+          {authUser ? (
+            // 已登录：显示用户名 + 退出
+            <>
+              <span className="landing-username">
+                {t.hi}{authUser.email?.split('@')[0]}
+              </span>
+              <button className="landing-login-btn" onClick={() => logout()}>
+                {t.logout}
+              </button>
+            </>
+          ) : (
+            // 未登录：显示登录按钮
+            <button className="landing-login-btn" onClick={onLogin}>
+              {t.login}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 水墨山水背景层 */}
