@@ -22,20 +22,26 @@ const AuthContext = createContext<AuthCtx | null>(null)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
-  const [token, setToken] = useState<string | null>(() => localStorage.getItem('yiqitang_token'))
+  const [token, setToken] = useState<string | null>(
+    () => localStorage.getItem('yiqitang_token')
+  )
   const [loading, setLoading] = useState(true)
 
+  const logout = () => {
+    localStorage.removeItem('yiqitang_token')
+    setToken(null)
+    setUser(null)
+    setLoading(false)
+  }
+
   useEffect(() => {
-    if (token) {
-      fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
-        .then(d => { if (d.user) setUser(d.user) else logout() })
-        .catch(logout)
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
-  }, [])
+    if (!token) { setLoading(false); return }
+    fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.user) setUser(d.user); else logout() })
+      .catch(() => logout())
+      .finally(() => setLoading(false))
+  }, [token])
 
   const saveAuth = (t: string, u: AuthUser) => {
     localStorage.setItem('yiqitang_token', t)
@@ -63,13 +69,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const d = await r.json()
     if (!r.ok) throw new Error(d.error || '注册失败')
     saveAuth(d.token, d.user)
-  }
-
-  const logout = () => {
-    localStorage.removeItem('yiqitang_token')
-    setToken(null)
-    setUser(null)
-    setLoading(false)
   }
 
   return (
