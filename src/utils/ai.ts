@@ -29,9 +29,10 @@ export class ApiError extends Error {
   }
 }
 
-// ── 清洗 Markdown 符号 ──────────────────────────────────
+// ── 清洗 Markdown 符号及 AI 自动加的结构标签 ────────────
 function cleanText(text: string): string {
   return text
+    // Markdown 符号
     .replace(/\*\*(.+?)\*\*/g, '$1')
     .replace(/__(.+?)__/g, '$1')
     .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1')
@@ -41,6 +42,12 @@ function cleanText(text: string): string {
     .replace(/^>\s*/gm, '')
     .replace(/^[-\*]{3,}\s*$/gm, '')
     .replace(/`(.+?)`/g, '$1')
+    // 去掉「第X部分：xxx」「Part X:」类标题行
+    .replace(/^第[一二三四五六七八九十\d]+部分[：:]\s*.{0,20}\n?/gm, '')
+    .replace(/^Part\s+\d+[：:]\s*.{0,30}\n?/gim, '')
+    // 去掉结论/推理等单独占一行的标签
+    .replace(/^(推理过程|结论与建议|结论|建议|Reasoning|Conclusion)[：:：]?\s*\n/gm, '')
+    // 合并多余空行
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }

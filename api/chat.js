@@ -131,9 +131,9 @@ export default async function handler(req, res) {
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
 
-    // 深度功能给更多 tokens
+    // 深度功能给更多 tokens（推理+结论内容多，需要足够空间）
     const isDeep = featureKey.endsWith('_deep') || featureKey === 'world_timing'
-    const maxTokens = isDeep ? 2000 : 1200
+    const maxTokens = isDeep ? 3500 : 2000
 
     const arkRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
