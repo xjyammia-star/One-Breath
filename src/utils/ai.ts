@@ -386,6 +386,23 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string
   }
 
   const data = await response.json()
-  return data.choices?.[0]?.message?.content
+  const raw = data.choices?.[0]?.message?.content
     || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
+  return cleanResponse(raw)
+}
+
+// 清洗 AI 输出中残留的 Markdown 符号
+function cleanResponse(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, '$1')         // **加粗**
+    .replace(/__(.+?)__/g, '$1')                  // __加粗__
+    .replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, '$1')  // *斜体*
+    .replace(/^#{1,6}\s+/gm, '')                 // # 标题
+    .replace(/^[\*\-\+]\s+/gm, '')            // * - + 列表
+    .replace(/^\d+\.\s+/gm, '')                // 1. 有序列表
+    .replace(/^>\s*/gm, '')                      // > 引用
+    .replace(/^[-\*]{3,}\s*$/gm, '')            // --- 分隔线
+    .replace(/\`(.+?)\`/g, '$1')                  // \`行内代码\`
+    .replace(/\n{3,}/g, '\n\n')               // 多余空行
+    .trim()
 }
