@@ -1106,3 +1106,144 @@ input, textarea, select { font-family: var(--font-zh); }
   font-size: 0.65rem;
   opacity: 0.7;
 }
+
+/* ══════════════════════════════════════════════════════
+   推理展开区块
+══════════════════════════════════════════════════════ */
+
+/* 结论/推理分区标签 */
+.result-section {
+  border-top: 1px solid var(--border-gold);
+}
+
+.result-section:first-child {
+  border-top: none;
+}
+
+.result-section-label {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.75rem;
+  letter-spacing: 0.18em;
+  color: var(--bronze);
+  background: rgba(155, 125, 58, 0.05);
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.reasoning-note {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-left: auto;
+  font-style: italic;
+}
+
+/* 推理正文：字号略小，行距宽，像手稿 */
+.reasoning-body {
+  font-size: 0.88rem;
+  line-height: 2.1;
+  color: var(--text-secondary);
+  background: rgba(26, 22, 18, 0.02);
+  border-left: 2px solid rgba(155, 125, 58, 0.25);
+  padding: 1.25rem 1.25rem 1.25rem 1.5rem;
+  white-space: pre-wrap;
+  letter-spacing: 0.04em;
+}
+
+/* 展开/收起按钮 */
+.result-reasoning-toggle {
+  padding: 0 1.25rem 0.75rem;
+  background: rgba(155, 125, 58, 0.02);
+}
+
+.reasoning-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  font-family: var(--font-zh);
+  letter-spacing: 0.12em;
+  color: var(--bronze);
+  background: transparent;
+  border: 1px solid rgba(155, 125, 58, 0.35);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reasoning-toggle-btn:hover {
+  background: rgba(155, 125, 58, 0.08);
+  border-color: var(--bronze);
+}
+
+.reasoning-toggle-icon {
+  font-size: 0.6rem;
+  opacity: 0.7;
+}
+
+/* 推理不可用提示 */
+.reasoning-unavailable {
+  padding: 0.6rem 0;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  font-style: italic;
+  letter-spacing: 0.05em;
+}
+
+/* 深度切换 Tab */
+.module-header {
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.module-header-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.depth-tabs {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.depth-tab {
+  padding: 0.4rem 1rem;
+  font-size: 0.82rem;
+  font-family: var(--font-zh);
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.depth-tab:first-child {
+  border-right: 1px solid var(--border-gold);
+}
+
+.depth-tab.active {
+  background: var(--ink);
+  color: var(--rice);
+}
+
+.depth-tab:hover:not(.active) {
+  background: rgba(155,125,58,0.08);
+  color: var(--ink);
+}
+
+.depth-tab-locked { opacity: 0.7; }
+.depth-lock-icon  { font-size: 0.65rem; opacity: 0.7; }
