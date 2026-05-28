@@ -4,6 +4,7 @@ import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
 import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse } from '../utils/ai'
 import { getBaZi } from '../utils/bazi'
+import OracleLoader from '../components/OracleLoader'
 
 interface Props {
   lang: Lang
@@ -415,10 +416,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
               </div>
             )}
             {loading && (
-              <div className="result-loading">
-                <div className="loading-dots"><span /><span /><span /></div>
-                <p>{lang === 'zh' ? '天机推演中…' : 'Reading the signs…'}</p>
-              </div>
+              <OracleLoader lang={lang} />
             )}
             {results.map((r, i) => (
               <ResultCard key={i} result={r} lang={lang} />

@@ -1247,3 +1247,221 @@ input, textarea, select { font-family: var(--font-zh); }
 
 .depth-tab-locked { opacity: 0.7; }
 .depth-lock-icon  { font-size: 0.65rem; opacity: 0.7; }
+/* ══════════════════════════════════════════════════════
+   OracleLoader — 推算动画
+══════════════════════════════════════════════════════ */
+
+.oracle-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1rem 2rem;
+  gap: 2rem;
+  position: relative;
+}
+
+/* ── 散发字符场 ── */
+.oracle-chars-field {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.oracle-float-char {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--bronze);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  animation: char-fly var(--duration, 2s) ease-out forwards;
+  white-space: nowrap;
+}
+
+@keyframes char-fly {
+  0% {
+    opacity: 0;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--angle, 0deg))
+      translateY(0px);
+  }
+  15% {
+    opacity: var(--opacity, 0.5);
+  }
+  100% {
+    opacity: 0;
+    transform:
+      translate(-50%, -50%)
+      rotate(var(--angle, 0deg))
+      translateY(calc(-1 * var(--distance, 100px)));
+  }
+}
+
+/* ── 主体图形 ── */
+.oracle-diagram {
+  position: relative;
+  width: 220px;
+  height: 220px;
+  flex-shrink: 0;
+}
+
+/* ── 通用环形定位 ── */
+.oracle-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+/* 外圈：八卦，反转慢转 */
+.oracle-ring-outer {
+  animation: ring-spin-reverse 18s linear infinite;
+}
+
+/* 中圈：天干，顺转 */
+.oracle-ring-mid {
+  animation: ring-spin 12s linear infinite;
+}
+
+/* 内圈：地支，反转快 */
+.oracle-ring-inner {
+  animation: ring-spin-reverse 8s linear infinite;
+}
+
+@keyframes ring-spin         { from { transform: rotate(0deg); }   to { transform: rotate(360deg); } }
+@keyframes ring-spin-reverse { from { transform: rotate(0deg); }   to { transform: rotate(-360deg); } }
+
+/* 环上的每个条目 */
+.oracle-ring-item {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  transform-origin: 0 0;
+  transform:
+    rotate(calc(var(--i) * (360deg / var(--total))))
+    translateY(-104px)
+    translate(-50%, -50%);
+}
+
+.oracle-ring-item-sm {
+  transform:
+    rotate(calc(var(--i) * (360deg / var(--total))))
+    translateY(-76px)
+    translate(-50%, -50%);
+}
+
+.oracle-ring-item-xs {
+  transform:
+    rotate(calc(var(--i) * (360deg / var(--total))))
+    translateY(-54px)
+    translate(-50%, -50%);
+}
+
+.oracle-ring-gua {
+  font-size: 1.1rem;
+  color: var(--bronze);
+  opacity: 0.85;
+  line-height: 1;
+}
+
+.oracle-ring-name {
+  font-size: 0.38rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  letter-spacing: 0.05em;
+  writing-mode: vertical-rl;
+  line-height: 1;
+}
+
+.oracle-ring-gan {
+  font-size: 0.7rem;
+  color: var(--ink-wash);
+  opacity: 0.75;
+  font-family: 'Noto Serif SC', serif;
+}
+
+.oracle-ring-zhi {
+  font-size: 0.6rem;
+  color: var(--turquoise);
+  opacity: 0.7;
+  font-family: 'Noto Serif SC', serif;
+}
+
+/* ── 核心太极 ── */
+.oracle-taiji-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  transform: translate(-50%, -50%);
+}
+
+.oracle-taiji-svg {
+  width: 100%;
+  height: 100%;
+  animation: ring-spin 6s linear infinite;
+  filter: drop-shadow(0 0 8px rgba(155, 125, 58, 0.25));
+}
+
+.oracle-core-glow {
+  position: absolute;
+  inset: -40%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(155,125,58,0.15) 0%, transparent 70%);
+  animation: glow-breathe 2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes glow-breathe {
+  0%, 100% { transform: scale(1);    opacity: 0.6; }
+  50%       { transform: scale(1.15); opacity: 1;   }
+}
+
+/* ── 推算步骤文字 ── */
+.oracle-steps {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+}
+
+.oracle-step-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.18em;
+  text-align: center;
+  animation: step-fade-in 0.5s ease;
+}
+
+@keyframes step-fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.oracle-step-dots {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.oracle-step-dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--mist);
+  transition: background 0.3s, transform 0.3s;
+}
+
+.oracle-step-dot.active {
+  background: var(--bronze);
+  transform: scale(1.4);
+}
