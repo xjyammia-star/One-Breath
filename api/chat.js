@@ -2,11 +2,12 @@
 const { getPool } = require('./_lib/db')
 const { getSession, checkFeatureAccess, logUsage } = require('./_lib/auth')
 
-const MODULE_FEATURE_MAP = {
-  self:   'self_basic',
-  people: 'people_basic',
-  world:  'world_year',
-}
+// 所有合法的 feature key
+const VALID_FEATURE_KEYS = [
+  'self_basic', 'self_deep',
+  'people_basic', 'people_deep',
+  'world_year', 'world_timing',
+]
 
 // 无需登录即可使用的功能
 const FREE_FEATURES = ['self_basic']
@@ -42,7 +43,6 @@ async function searchCorpus(question, pool) {
   }
 }
 
-// 匿名用户限次：用 IP + 日期作为 key，存在 usage_logs 表
 async function checkAnonLimit(ip, featureKey, pool) {
   try {
     const today = new Date().toISOString().slice(0, 10)
@@ -59,7 +59,6 @@ async function checkAnonLimit(ip, featureKey, pool) {
       count,
     }
   } catch (err) {
-    // 查询失败时允许通过，避免数据库问题影响用户体验
     return { allowed: true, remaining: ANON_DAILY_LIMIT, count: 0 }
   }
 }
@@ -71,9 +70,7 @@ async function logAnonUsage(ip, featureKey, pool) {
        VALUES (NULL, $1, $2, NOW())`,
       [featureKey, ip]
     )
-  } catch (err) {
-    // 记录失败不影响主流程
-  }
+  } catch (err) {}
 }
 
 export default async function handler(req, res) {
@@ -82,18 +79,18 @@ export default async function handler(req, res) {
   const pool = getPool()
 
   try {
-    const { messages, system, module: mod } = req.body
+    const { messages, system, featureKey: rawKey } = req.body
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) return res.status(500).json({ error: 'Missing DEEPSEEK_API_KEY' })
 
-    const featureKey = MODULE_FEATURE_MAP[mod] || 'self_basic'
+    // 校验 featureKey，不合法则降级为 self_basic
+    const featureKey = VALID_FEATURE_KEYS.includes(rawKey) ? rawKey : 'self_basic'
     const isFreeFeature = FREE_FEATURES.includes(featureKey)
 
-    // 尝试获取登录用户
     const session = await getSession(req, pool)
 
     if (session) {
-      // ── 已登录用户：走原有权限校验逻辑 ──
+      // ── 已登录用户 ──
       const access = await checkFeatureAccess(session.user_id, featureKey, pool)
       if (!access.allowed) {
         const msg = access.reason === 'daily_limit_reached'
@@ -101,20 +98,18 @@ export default async function handler(req, res) {
           : access.reason === 'paid_required'
           ? '此功能需要订阅后使用'
           : '功能暂不可用'
-        return res.status(403).json({ error: msg, reason: access.reason })
+        return res.status(403).json({ error: msg, reason: access.reason, code: access.reason === 'paid_required' ? 'PAID_REQUIRED' : 'DAILY_LIMIT_REACHED' })
       }
       await logUsage(session.user_id, featureKey, pool)
 
     } else {
-      // ── 未登录用户：只允许免费功能 ──
+      // ── 未登录用户 ──
       if (!isFreeFeature) {
         return res.status(401).json({
           error: '此功能需要登录后使用',
           code: 'LOGIN_REQUIRED',
         })
       }
-
-      // 匿名限次检查（用 IP）
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
                || req.socket?.remoteAddress
                || 'unknown'
@@ -136,14 +131,17 @@ export default async function handler(req, res) {
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
 
-    // 调用 DeepSeek
+    // 深度功能给更多 tokens
+    const isDeep = featureKey.endsWith('_deep') || featureKey === 'world_timing'
+    const maxTokens = isDeep ? 2000 : 1200
+
     const arkRes = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: 'ep-20260516000733-j969v',
         messages: [{ role: 'system', content: system }, ...messagesWithRef],
-        max_tokens: 1200,
+        max_tokens: maxTokens,
         temperature: 0.7,
       }),
     })

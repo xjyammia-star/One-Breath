@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
-import { analyzeWithDeepSeek, ApiError } from '../utils/ai'
+import { analyzeWithDeepSeek, ApiError, FeatureKey } from '../utils/ai'
 import { getBaZi } from '../utils/bazi'
 
 interface Props {
@@ -12,11 +12,24 @@ interface Props {
   onBack: () => void
   onReset: () => void
   onAdmin?: () => void
-  onLogin?: () => void    // 跳转登录页
+  onLogin?: () => void
+}
+
+// 每个模块的基础/深度配置
+const MODULE_FEATURES: Record<Module, {
+  basic: FeatureKey
+  deep: FeatureKey
+}> = {
+  self:   { basic: 'self_basic',   deep: 'self_deep'    },
+  people: { basic: 'people_basic', deep: 'people_deep'  },
+  world:  { basic: 'world_year',   deep: 'world_timing' },
 }
 
 // 需要登录才能使用的模块
 const LOGIN_REQUIRED_MODULES: Module[] = ['people', 'world']
+
+// 付费套餐列表
+const PAID_PLANS = ['monthly', 'quarterly', 'yearly']
 
 const text = {
   zh: {
@@ -26,27 +39,29 @@ const text = {
       { id: 'people' as Module, icon: '☯', name: '与人',   sub: '关系·合婚·人际',       locked: true  },
       { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·世界能量',   locked: true  },
     ],
+    depthTabs: {
+      basic: '基础',
+      deep: '深度',
+    },
+    depthDesc: {
+      self:   { basic: '五行概况·性格·今年运势', deep: '十神格局·用神·大运流年·深度解析' },
+      people: { basic: '五行相合·关系优劣', deep: '日柱配对·婚姻宫·合冲·走势预判' },
+      world:  { basic: '流年五行·今年影响', deep: '择吉时机·方位·行业·避忌' },
+    },
     birthInfo: '生辰',
     lunarLabel: '农历',
     bazi: '八字',
     askPlaceholder: '在此输入您的问题，天地之气为您指引……',
     send: '问卦',
     sending: '推算中…',
-    selfQuestions: [
-      '我的命局五行如何？',
-      '我的性格优势与弱点是什么？',
-      '今年整体运势如何？',
-    ],
-    peopleQuestions: [
-      '我与对方的五行相合吗？',
-      '我们的关系格局如何？',
-      '如何改善与某人的关系？',
-    ],
-    worldQuestions: [
-      '当前世界能量场是什么状态？',
-      '今年的年运有何提示？',
-      '哪个方向有利于我的发展？',
-    ],
+    quickQ: {
+      self_basic:   ['我的命局五行如何？', '我的性格优势与弱点是什么？', '今年整体运势如何？'],
+      self_deep:    ['帮我分析十神格局', '我的用神是什么？', '当前大运对我有何影响？'],
+      people_basic: ['我与对方的五行相合吗？', '我们的关系格局如何？', '如何改善与某人的关系？'],
+      people_deep:  ['帮我做详细合婚分析', '我们的日柱配对如何？', '这段关系未来走势如何？'],
+      world_year:   ['当前世界能量场是什么状态？', '今年的年运有何提示？', '哪个方向有利于我的发展？'],
+      world_timing: ['今年哪个月最适合重大决策？', '我适合往哪个方向发展？', '今年有哪些时间需要避忌？'],
+    },
     reset: '重置命盘',
     langSwitch: 'EN',
     back: '← 主页',
@@ -54,14 +69,17 @@ const text = {
     logout: '退出',
     admin: '管理后台',
     genderMap: { male: '男', female: '女', other: '其他' },
-    // 浮层文字
     loginRequired: '此功能需要登录',
     loginRequiredDesc: '登录后即可使用「与人」「与世界」模块，并获得每日免费次数。',
+    paidRequired: '深度解读需要订阅',
+    paidRequiredDesc: '深度解读功能需要订阅会员后使用，包含十神格局、用神忌神、大运流年等专业分析。',
     goLogin: '登录 / 注册',
-    cancel: '暂不登录',
+    goSubscribe: '了解订阅套餐',
+    cancel: '暂不',
     limitReached: '今日次数已用完',
     limitDesc: '您今日的免费次数已用完。登录账号后可获得更多次数，订阅会员可无限使用。',
     goLoginForMore: '登录获取更多次数',
+    deepBadge: '深度',
   },
   en: {
     greeting: (name: string) => `${name}'s Chart`,
@@ -70,27 +88,29 @@ const text = {
       { id: 'people' as Module, icon: '☯', name: 'Relations',   sub: 'Compatibility · Bonds · People',    locked: true  },
       { id: 'world' as Module,  icon: '☰', name: 'The World',   sub: 'Timing · Annual cycle · Energy',    locked: true  },
     ],
+    depthTabs: {
+      basic: 'Basic',
+      deep: 'Deep',
+    },
+    depthDesc: {
+      self:   { basic: 'Elements · Character · This Year', deep: 'Ten Gods · Useful God · Da Yun · Full Analysis' },
+      people: { basic: 'Elemental Fit · Relationship', deep: 'Day Pillar · Marriage Palace · Cycles' },
+      world:  { basic: 'Annual Elements · Year Impact', deep: 'Timing · Directions · Industries · Cautions' },
+    },
     birthInfo: 'Birth',
     lunarLabel: 'Lunar',
     bazi: 'Ba Zi',
     askPlaceholder: 'Ask the oracle anything — heaven and earth shall answer…',
     send: 'Consult',
     sending: 'Reading…',
-    selfQuestions: [
-      'What are my dominant elements?',
-      'What are my core strengths and challenges?',
-      'What does this year hold for me?',
-    ],
-    peopleQuestions: [
-      'Are we elementally compatible?',
-      'What is the nature of our bond?',
-      'How can I improve this relationship?',
-    ],
-    worldQuestions: [
-      'What is the current world energy?',
-      'What guidance does this year offer?',
-      'Which direction favors my growth?',
-    ],
+    quickQ: {
+      self_basic:   ['What are my dominant elements?', 'What are my core strengths and challenges?', 'What does this year hold for me?'],
+      self_deep:    ['Analyze my Ten Gods pattern', 'What is my useful god?', 'How does my current Da Yun affect me?'],
+      people_basic: ['Are we elementally compatible?', 'What is the nature of our bond?', 'How can I improve this relationship?'],
+      people_deep:  ['Give me a full compatibility reading', 'How do our Day Pillars pair?', "What's the trajectory of this relationship?"],
+      world_year:   ['What is the current world energy?', 'What guidance does this year offer?', 'Which direction favors my growth?'],
+      world_timing: ['Which month is best for major decisions?', 'Which direction should I focus on?', 'What periods should I be cautious about?'],
+    },
     reset: 'Reset Chart',
     langSwitch: '中文',
     back: '← Home',
@@ -98,24 +118,28 @@ const text = {
     logout: 'Logout',
     admin: 'Admin',
     genderMap: { male: 'Male', female: 'Female', other: 'Other' },
-    // modal text
     loginRequired: 'Login Required',
     loginRequiredDesc: 'Sign in to access Relations and The World modules, plus daily free readings.',
+    paidRequired: 'Subscription Required',
+    paidRequiredDesc: 'Deep readings require a subscription. Includes Ten Gods analysis, Useful God, Da Yun cycles, and more.',
     goLogin: 'Login / Register',
+    goSubscribe: 'View Plans',
     cancel: 'Maybe Later',
     limitReached: 'Daily Limit Reached',
     limitDesc: "You've used your free readings for today. Login for more, or subscribe for unlimited access.",
     goLoginForMore: 'Login for More',
+    deepBadge: 'Deep',
   },
 }
 
-// 浮层类型
-type ModalType = 'login_required' | 'limit_reached' | null
+type ModalType = 'login_required' | 'limit_reached' | 'paid_required' | null
+type DepthMode = 'basic' | 'deep'
 
 export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmin, onLogin }: Props) {
   const t = text[lang]
   const { user: authUser, logout } = useAuth()
   const [activeModule, setActiveModule] = useState<Module>('self')
+  const [depthMode, setDepthMode] = useState<DepthMode>('basic')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<AnalysisResult[]>([])
@@ -123,27 +147,47 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
 
   const bazi = getBaZi(user.birthYear, user.birthMonth, user.birthDay, user.birthHour)
   const currentMod = t.modules.find(m => m.id === activeModule)!
-  const quickQ = activeModule === 'self' ? t.selfQuestions
-               : activeModule === 'people' ? t.peopleQuestions
-               : t.worldQuestions
 
-  // 切换模块时检查是否需要登录
+  // 当前 featureKey
+  const featureKey: FeatureKey = MODULE_FEATURES[activeModule][depthMode]
+
+  // 当前快捷问题
+  const quickQ = t.quickQ[featureKey] || []
+
+  // 当前模块的描述
+  const currentDesc = (t.depthDesc as any)[activeModule][depthMode]
+
+  // 是否有付费订阅
+  const hasPaid = authUser && PAID_PLANS.includes(authUser.plan)
+
+  // 切换模块
   const handleModuleSwitch = (modId: Module) => {
     if (LOGIN_REQUIRED_MODULES.includes(modId) && !authUser) {
       setModal('login_required')
       return
     }
     setActiveModule(modId)
+    setDepthMode('basic') // 切换模块时重置为基础
+  }
+
+  // 切换深度模式
+  const handleDepthSwitch = (mode: DepthMode) => {
+    if (mode === 'deep') {
+      if (!authUser) { setModal('login_required'); return }
+      if (!hasPaid)  { setModal('paid_required');  return }
+    }
+    setDepthMode(mode)
   }
 
   const handleSend = async (q?: string) => {
     const question = q || query
     if (!question.trim()) return
 
-    // 当前模块需要登录但未登录
     if (LOGIN_REQUIRED_MODULES.includes(activeModule) && !authUser) {
-      setModal('login_required')
-      return
+      setModal('login_required'); return
+    }
+    if (depthMode === 'deep' && !hasPaid) {
+      setModal('paid_required'); return
     }
 
     setLoading(true)
@@ -151,11 +195,10 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
 
     try {
       const response = await analyzeWithDeepSeek({
-        user,
-        bazi,
+        user, bazi,
         module: activeModule,
-        question,
-        lang,
+        featureKey,
+        question, lang,
       })
 
       setResults(prev => [{
@@ -166,26 +209,15 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
       }, ...prev])
 
     } catch (err) {
-      // 根据错误码显示不同浮层
       if (err instanceof ApiError) {
-        if (err.code === 'LOGIN_REQUIRED') {
-          setModal('login_required')
-          setLoading(false)
-          return
-        }
-        if (err.code === 'ANON_LIMIT_REACHED') {
-          setModal('limit_reached')
-          setLoading(false)
-          return
-        }
+        if (err.code === 'LOGIN_REQUIRED')   { setModal('login_required');  setLoading(false); return }
+        if (err.code === 'ANON_LIMIT_REACHED') { setModal('limit_reached'); setLoading(false); return }
+        if (err.code === 'PAID_REQUIRED')    { setModal('paid_required');   setLoading(false); return }
       }
-      // 其他错误正常显示在结果区
       setResults(prev => [{
         module: activeModule,
         query: question,
-        response: lang === 'zh'
-          ? '天机难测，请稍后再试。（连接失败）'
-          : 'The oracle is momentarily silent. Please try again.',
+        response: lang === 'zh' ? '天机难测，请稍后再试。（连接失败）' : 'The oracle is momentarily silent. Please try again.',
         timestamp: new Date().toISOString(),
       }, ...prev])
     }
@@ -202,22 +234,22 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
           <div className="modal-box" onClick={e => e.stopPropagation()}>
             <div className="modal-icon">☯</div>
             <h3 className="modal-title">
-              {modal === 'login_required' ? t.loginRequired : t.limitReached}
+              {modal === 'login_required' ? t.loginRequired
+               : modal === 'paid_required' ? t.paidRequired
+               : t.limitReached}
             </h3>
             <p className="modal-desc">
-              {modal === 'login_required' ? t.loginRequiredDesc : t.limitDesc}
+              {modal === 'login_required' ? t.loginRequiredDesc
+               : modal === 'paid_required' ? t.paidRequiredDesc
+               : t.limitDesc}
             </p>
             <div className="modal-actions">
-              <button
-                className="modal-btn-primary"
-                onClick={() => { setModal(null); onLogin?.() }}
-              >
-                {modal === 'login_required' ? t.goLogin : t.goLoginForMore}
+              <button className="modal-btn-primary" onClick={() => { setModal(null); onLogin?.() }}>
+                {modal === 'paid_required' ? t.goSubscribe
+                 : modal === 'limit_reached' ? t.goLoginForMore
+                 : t.goLogin}
               </button>
-              <button
-                className="modal-btn-secondary"
-                onClick={() => setModal(null)}
-              >
+              <button className="modal-btn-secondary" onClick={() => setModal(null)}>
                 {t.cancel}
               </button>
             </div>
@@ -232,20 +264,14 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
           <h1 className="dash-title">{t.greeting(user.name)}</h1>
         </div>
         <div className="dash-header-right">
-          <button className="text-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}>
-            {t.langSwitch}
-          </button>
+          <button className="text-btn" onClick={() => setLang(lang === 'zh' ? 'en' : 'zh')}>{t.langSwitch}</button>
           {authUser?.role === 'admin' && onAdmin && (
             <button className="text-btn" onClick={onAdmin}>{t.admin}</button>
           )}
           {authUser ? (
-            <button className="text-btn" onClick={() => { logout(); onBack() }}>
-              {t.logout}
-            </button>
+            <button className="text-btn" onClick={() => { logout(); onBack() }}>{t.logout}</button>
           ) : (
-            <button className="text-btn" onClick={onLogin}>
-              {t.login}
-            </button>
+            <button className="text-btn" onClick={onLogin}>{t.login}</button>
           )}
           <button className="text-btn danger" onClick={onReset}>{t.reset}</button>
         </div>
@@ -253,10 +279,8 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
 
       <div className="dash-body">
 
-        {/* ── 左侧：用户信息 + 模块选择 ── */}
+        {/* ── 左侧 ── */}
         <aside className="dash-sidebar">
-
-          {/* 命盘信息 */}
           <div className="profile-card">
             <div className="profile-avatar">
               <span className="avatar-glyph">
@@ -265,13 +289,10 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
             </div>
             <div className="profile-name">{user.name}</div>
             <div className="profile-gender">{t.genderMap[user.gender]}</div>
-
             <div className="profile-dates">
               <div className="date-row">
                 <span className="date-label">{t.birthInfo}：</span>
-                <span className="date-val">
-                  {user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00
-                </span>
+                <span className="date-val">{user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00</span>
               </div>
               {user.lunarDate && (
                 <div className="date-row">
@@ -284,8 +305,6 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
                 <span className="date-val">{user.birthPlace}</span>
               </div>
             </div>
-
-            {/* 八字显示 */}
             <div className="bazi-display">
               <div className="bazi-label">{t.bazi}</div>
               <div className="bazi-pillars">
@@ -305,7 +324,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
             </div>
           </div>
 
-          {/* 模块选择：锁定的模块显示锁图标 */}
+          {/* 模块导航 */}
           <nav className="module-nav">
             {t.modules.map(mod => {
               const isLocked = mod.locked && !authUser
@@ -327,24 +346,38 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
           </nav>
         </aside>
 
-        {/* ── 右侧：问答区 ── */}
+        {/* ── 右侧 ── */}
         <main className="dash-main">
 
-          {/* 模块标题 */}
+          {/* 模块标题 + 深度切换 */}
           <div className="module-header">
             <span className="module-header-icon">{currentMod.icon}</span>
-            <div>
+            <div className="module-header-info">
               <h2 className="module-header-name">{currentMod.name}</h2>
-              <p className="module-header-sub">{currentMod.sub}</p>
+              <p className="module-header-sub">{currentDesc}</p>
+            </div>
+            {/* 基础 / 深度 tab */}
+            <div className="depth-tabs">
+              <button
+                className={`depth-tab ${depthMode === 'basic' ? 'active' : ''}`}
+                onClick={() => handleDepthSwitch('basic')}
+              >
+                {t.depthTabs.basic}
+              </button>
+              <button
+                className={`depth-tab ${depthMode === 'deep' ? 'active' : ''} ${!hasPaid ? 'depth-tab-locked' : ''}`}
+                onClick={() => handleDepthSwitch('deep')}
+              >
+                {t.depthTabs.deep}
+                {!hasPaid && <span className="depth-lock-icon">🔒</span>}
+              </button>
             </div>
           </div>
 
           {/* 快捷问题 */}
           <div className="quick-questions">
-            {quickQ.map((q, i) => (
-              <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>
-                {q}
-              </button>
+            {quickQ.map((q: string, i: number) => (
+              <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>{q}</button>
             ))}
           </div>
 
@@ -355,12 +388,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
               placeholder={t.askPlaceholder}
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
-                }
-              }}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
               rows={3}
             />
             <button
@@ -382,9 +410,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
             )}
             {loading && (
               <div className="result-loading">
-                <div className="loading-dots">
-                  <span /><span /><span />
-                </div>
+                <div className="loading-dots"><span /><span /><span /></div>
                 <p>{lang === 'zh' ? '天机推演中…' : 'Reading the signs…'}</p>
               </div>
             )}
@@ -392,9 +418,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
               <div key={i} className="result-card">
                 <div className="result-header">
                   <span className="result-q">「{r.query}」</span>
-                  <span className="result-time">
-                    {new Date(r.timestamp).toLocaleTimeString()}
-                  </span>
+                  <span className="result-time">{new Date(r.timestamp).toLocaleTimeString()}</span>
                 </div>
                 <div className="result-body">{r.response}</div>
               </div>
