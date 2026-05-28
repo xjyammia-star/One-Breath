@@ -17,12 +17,23 @@ const ANON_DAILY_LIMIT = 3
 
 function extractKeywords(question) {
   const stopWords = ['怎么','如何','什么','为什么','哪些','吗','呢','啊','的','了','吧',
+                     '我','你','他','她','它','这','那','有','没','是','在',
                      'what','how','why','is','are','the','a','an','my','me','i']
+  // 五行、天干、地支单字特殊处理，不受长度限制
+  const singleCharAllowlist = new Set([
+    '木','火','土','金','水',
+    '甲','乙','丙','丁','戊','己','庚','辛','壬','癸',
+    '子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥',
+    '阴','阳','乾','坤','震','巽','坎','离','艮','兑',
+  ])
   const words = question
-    .replace(/[？?！!。，,]/g, ' ')
+    .replace(/[？?！!。，,【】]/g, ' ')
     .split(/\s+/)
-    .filter(w => w.length >= 2 && !stopWords.includes(w.toLowerCase()))
-  return [...new Set(words)].slice(0, 6)
+    .filter(w => {
+      if (singleCharAllowlist.has(w)) return true       // 单字白名单直接保留
+      return w.length >= 2 && !stopWords.includes(w.toLowerCase())
+    })
+  return [...new Set(words)].slice(0, 8)  // 增加到8个关键词
 }
 
 async function searchCorpus(question, pool) {
