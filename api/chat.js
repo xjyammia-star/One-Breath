@@ -139,9 +139,15 @@ export default async function handler(req, res) {
       await logAnonUsage(ip, featureKey, pool)
     }
 
-    // 检索古籍
+    // 检索古籍：只用问题本身做关键词匹配，不用含八字信息的完整上下文
     const lastMsg = messages[messages.length - 1]?.content || ''
-    const { ref: corpusRef, sources: corpusSources } = await searchCorpus(lastMsg, pool)
+    // 从完整消息里提取【问题】之后的部分，避免八字信息干扰关键词提取
+    const questionOnly = lastMsg.includes('【问题】')
+      ? lastMsg.split('【问题】').pop()?.trim() || lastMsg
+      : lastMsg.includes('【Question】')
+      ? lastMsg.split('【Question】').pop()?.trim() || lastMsg
+      : lastMsg.slice(-200)  // 取最后200字作为问题区域
+    const { ref: corpusRef, sources: corpusSources } = await searchCorpus(questionOnly, pool)
     const messagesWithRef = messages.map((m, i) =>
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
