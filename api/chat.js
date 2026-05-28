@@ -28,7 +28,7 @@ function extractKeywords(question) {
 async function searchCorpus(question, pool) {
   try {
     const keywords = extractKeywords(question)
-    if (keywords.length === 0) return ''
+    if (keywords.length === 0) return { ref: '', sources: [] }
     const conditions = keywords.map((_, i) => `text ILIKE $${i + 1}`).join(' OR ')
     const params = keywords.map(k => `%${k}%`)
     const result = await pool.query(
@@ -36,10 +36,25 @@ async function searchCorpus(question, pool) {
        ORDER BY CASE WHEN source_type = 'corpus' THEN 0 ELSE 1 END LIMIT 5`,
       params
     )
-    if (result.rows.length === 0) return ''
-    return '\n\n【相关古籍参考】\n' + result.rows.map(r => `【${r.title || '古籍'}】${r.text}`).join('\n\n')
+    if (result.rows.length === 0) return { ref: '', sources: [] }
+
+    // 构建给 AI 的参考文本
+    const ref = '\n\n【相关古籍参考】\n' + result.rows.map(r => `【${r.title || '古籍'}】${r.text}`).join('\n\n')
+
+    // 构建返回给前端的来源列表（去重）
+    const seen = new Set()
+    const sources = []
+    for (const row of result.rows) {
+      const title = row.title || '古籍'
+      if (!seen.has(title)) {
+        seen.add(title)
+        sources.push({ title, excerpt: row.text.slice(0, 120) })
+      }
+    }
+
+    return { ref, sources }
   } catch (err) {
-    return ''
+    return { ref: '', sources: [] }
   }
 }
 
@@ -126,7 +141,7 @@ export default async function handler(req, res) {
 
     // 检索古籍
     const lastMsg = messages[messages.length - 1]?.content || ''
-    const corpusRef = await searchCorpus(lastMsg, pool)
+    const { ref: corpusRef, sources: corpusSources } = await searchCorpus(lastMsg, pool)
     const messagesWithRef = messages.map((m, i) =>
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
@@ -150,7 +165,7 @@ export default async function handler(req, res) {
     if (!arkRes.ok) return res.status(500).json({ error: `Upstream ${arkRes.status}`, detail: text })
 
     const data = JSON.parse(text)
-    return res.status(200).json({ ...data })
+    return res.status(200).json({ ...data, sources: corpusSources })
 
   } catch (err) {
     return res.status(500).json({ error: 'Handler error', detail: err.message })

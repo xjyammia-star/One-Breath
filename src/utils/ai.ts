@@ -16,9 +16,15 @@ interface AnalyzeParams {
   lang: Lang
 }
 
+export interface CorpusSource {
+  title: string      // 古籍书名
+  excerpt: string    // 相关片段（前120字）
+}
+
 export interface ParsedResponse {
-  reasoning: string   // 推理过程
-  conclusion: string  // 结论与建议
+  reasoning: string        // 推理过程
+  conclusion: string       // 结论与建议
+  sources: CorpusSource[]  // 参考古籍来源
 }
 
 export class ApiError extends Error {
@@ -64,6 +70,7 @@ export function parseResponse(raw: string): ParsedResponse {
     return {
       reasoning:  cleaned.slice(0, idx).trim(),
       conclusion: cleaned.slice(idx + marker.length).trim(),
+      sources: [],
     }
   }
 
@@ -75,12 +82,13 @@ export function parseResponse(raw: string): ParsedResponse {
       return {
         reasoning:  cleaned.slice(0, fi).trim(),
         conclusion: cleaned.slice(fi).trim(),
+        sources: [],
       }
     }
   }
 
   // 实在找不到就全部作为结论
-  return { reasoning: '', conclusion: cleaned }
+  return { reasoning: '', conclusion: cleaned, sources: [] }
 }
 
 // ── 构建用户命盘上下文 ──────────────────────────────────
@@ -625,5 +633,8 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<Parsed
   const raw = data.choices?.[0]?.message?.content
     || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
 
-  return parseResponse(raw)
+  const parsed = parseResponse(raw)
+  // 把后端返回的古籍来源合并进来
+  parsed.sources = data.sources || []
+  return parsed
 }

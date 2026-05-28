@@ -1465,3 +1465,114 @@ input, textarea, select { font-family: var(--font-zh); }
   background: var(--bronze);
   transform: scale(1.4);
 }
+
+/* ══════════════════════════════════════════════════════
+   古籍引用标签 & 来源浮层
+══════════════════════════════════════════════════════ */
+
+/* 引用标签栏 */
+.result-sources {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.6rem 1.25rem;
+  border-top: 1px solid var(--border-gold);
+  background: rgba(155, 125, 58, 0.03);
+}
+
+.result-sources-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  flex-shrink: 0;
+}
+
+.result-source-tag {
+  padding: 0.2rem 0.65rem;
+  font-size: 0.75rem;
+  font-family: var(--font-zh);
+  color: var(--bronze);
+  background: rgba(155, 125, 58, 0.08);
+  border: 1px solid rgba(155, 125, 58, 0.3);
+  border-radius: 2px;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  transition: all 0.2s;
+}
+
+.result-source-tag:hover {
+  background: rgba(155, 125, 58, 0.18);
+  border-color: var(--bronze);
+  transform: translateY(-1px);
+}
+
+/* 古籍来源浮层 */
+.source-modal-box {
+  background: #1e1a14;
+  border: 1px solid rgba(155, 125, 58, 0.45);
+  padding: 0;
+  max-width: 460px;
+  width: 92%;
+  animation: modalIn 0.2s ease;
+  overflow: hidden;
+}
+
+.source-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid rgba(155, 125, 58, 0.25);
+  background: rgba(155, 125, 58, 0.06);
+}
+
+.source-modal-title {
+  font-size: 1.1rem;
+  font-family: var(--font-zh);
+  color: var(--bronze);
+  letter-spacing: 0.15em;
+  font-weight: 500;
+}
+
+.source-modal-close {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  transition: color 0.2s;
+}
+
+.source-modal-close:hover { color: var(--rice); }
+
+.source-modal-label {
+  padding: 0.6rem 1.5rem 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+}
+
+/* 古籍原文：竖排感，仿古字体 */
+.source-modal-text {
+  padding: 1rem 1.5rem 0.75rem;
+  font-family: 'Noto Serif SC', 'STKaiti', serif;
+  font-size: 0.95rem;
+  line-height: 2.1;
+  color: rgba(245, 240, 232, 0.88);
+  letter-spacing: 0.08em;
+  border-left: 2px solid rgba(155, 125, 58, 0.3);
+  margin: 0 1.5rem 0.5rem;
+  background: rgba(26, 22, 18, 0.3);
+  padding: 1rem;
+}
+
+.source-modal-note {
+  padding: 0.75rem 1.5rem 1.25rem;
+  font-size: 0.75rem;
+  color: rgba(245, 240, 232, 0.35);
+  letter-spacing: 0.06em;
+  line-height: 1.7;
+  font-style: italic;
+}

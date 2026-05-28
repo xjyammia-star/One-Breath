@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
-import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse } from '../utils/ai'
+import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource } from '../utils/ai'
 import { getBaZi } from '../utils/bazi'
 import OracleLoader from '../components/OracleLoader'
 
@@ -16,9 +16,10 @@ interface Props {
   onLogin?: () => void
 }
 
-// 扩展 AnalysisResult，增加推理字段
+// 扩展 AnalysisResult，增加推理和来源字段
 interface ExtendedResult extends AnalysisResult {
   reasoning?: string
+  sources?: Array<{ title: string; excerpt: string }>
 }
 
 const MODULE_FEATURES: Record<Module, { basic: FeatureKey; deep: FeatureKey }> = {
@@ -120,13 +121,50 @@ const text = {
 type ModalType = 'login_required' | 'limit_reached' | 'paid_required' | null
 type DepthMode = 'basic' | 'deep'
 
+// 古籍来源浮层
+function SourceModal({ source, lang, onClose }: {
+  source: CorpusSource
+  lang: 'zh' | 'en'
+  onClose: () => void
+}) {
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="source-modal-box" onClick={e => e.stopPropagation()}>
+        <div className="source-modal-header">
+          <span className="source-modal-title">《{source.title}》</span>
+          <button className="source-modal-close" onClick={onClose}>✕</button>
+        </div>
+        <div className="source-modal-label">
+          {lang === 'zh' ? 'AI 参考的原文片段' : 'Referenced passage'}
+        </div>
+        <div className="source-modal-text">{source.excerpt}</div>
+        <p className="source-modal-note">
+          {lang === 'zh'
+            ? '以上为古籍知识库中与您问题最相关的片段，AI 以此为据进行推演。'
+            : 'This passage from our classical text library was referenced in the analysis above.'}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 // 单个结果卡片组件（含展开/收起推理）
 function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh' | 'en' }) {
   const [showReasoning, setShowReasoning] = useState(false)
+  const [activeSource, setActiveSource] = useState<CorpusSource | null>(null)
   const t = text[lang]
 
   return (
     <div className="result-card">
+      {/* 古籍来源浮层 */}
+      {activeSource && (
+        <SourceModal
+          source={activeSource}
+          lang={lang}
+          onClose={() => setActiveSource(null)}
+        />
+      )}
+
       <div className="result-header">
         <span className="result-q">「{result.query}」</span>
         <span className="result-time">{new Date(result.timestamp).toLocaleTimeString()}</span>
@@ -137,6 +175,24 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh' | 'en
         <div className="result-section-label">{t.conclusionTitle}</div>
         <div className="result-body">{result.response}</div>
       </div>
+
+      {/* 古籍引用标签 */}
+      {result.sources && result.sources.length > 0 && (
+        <div className="result-sources">
+          <span className="result-sources-label">
+            {lang === 'zh' ? '参考古籍：' : 'Sources: '}
+          </span>
+          {result.sources.map((s, i) => (
+            <button
+              key={i}
+              className="result-source-tag"
+              onClick={() => setActiveSource(s)}
+            >
+              《{s.title}》
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 推理区（可展开）*/}
       <div className="result-reasoning-toggle">
@@ -224,6 +280,7 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
         query: question,
         response: parsed.conclusion,
         reasoning: parsed.reasoning,
+        sources: parsed.sources,
         timestamp: new Date().toISOString(),
       }, ...prev])
 
