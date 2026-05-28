@@ -130,7 +130,7 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<string
     : `${userContext}\n\n【Question】${question}`
 
   // 从 localStorage 读取登录 token（未登录则为 null）
-  const token = localStorage.getItem('token')
+  const token = localStorage.getItem('yiqitang_token')
 
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
