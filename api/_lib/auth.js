@@ -1,12 +1,6 @@
 // api/_lib/auth.js
-// 认证工具函数
-
 const crypto = require('crypto')
 
-/**
- * 简单密码哈希（不依赖bcrypt，避免Vercel部署问题）
- * 使用 PBKDF2，Node.js内置，无需安装依赖
- */
 function hashPassword(password) {
   const salt = crypto.randomBytes(16).toString('hex')
   const hash = crypto.pbkdf2Sync(password, salt, 10000, 64, 'sha512').toString('hex')
@@ -19,16 +13,10 @@ function verifyPassword(password, stored) {
   return verify === hash
 }
 
-/**
- * 生成随机 session token
- */
 function generateToken() {
   return crypto.randomBytes(32).toString('hex')
 }
 
-/**
- * 从请求头获取token并验证
- */
 async function getSession(req, pool) {
   const auth = req.headers.authorization || ''
   const token = auth.replace('Bearer ', '').trim()
@@ -44,10 +32,6 @@ async function getSession(req, pool) {
   return result.rows[0] || null
 }
 
-/**
- * 检查用户是否有权使用某功能
- * 返回 { allowed: bool, reason: string, remaining: number }
- */
 async function checkFeatureAccess(userId, featureKey, pool) {
   // 1. 获取功能配置
   const featureRes = await pool.query(
@@ -66,47 +50,37 @@ async function checkFeatureAccess(userId, featureKey, pool) {
   const user = userRes.rows[0]
   if (!user) return { allowed: false, reason: 'user_not_found' }
 
-  // 3. 付费用户（订阅有效）：无限制
-  const isPaidUser = user.plan !== 'free' &&
-    user.plan_expires_at &&
-    new Date(user.plan_expires_at) > new Date()
+  // 3. 付费用户判断：
+  //    - plan 不是 free
+  //    - 且 plan_expires_at 为空（永久有效）或未过期
+  const isPaidPlan = user.plan !== 'free'
+  const isExpired = user.plan_expires_at
+    ? new Date(user.plan_expires_at) <= new Date()
+    : false  // 没有到期时间 = 永久有效
 
-  if (isPaidUser) return { allowed: true, reason: 'paid_user', remaining: -1 }
-
-  // 4. 免费功能：检查每日次数
-  if (!feature.is_paid) {
-    if (feature.free_daily_limit === 0) return { allowed: false, reason: 'no_free_access' }
-
-    const today = new Date().toISOString().split('T')[0]
-    const usageRes = await pool.query(
-      'SELECT COUNT(*) as count FROM usage_logs WHERE user_id = $1 AND feature_key = $2 AND date_key = $3',
-      [userId, featureKey, today]
-    )
-    const used = parseInt(usageRes.rows[0].count)
-    const remaining = feature.free_daily_limit - used
-
-    if (remaining <= 0) return { allowed: false, reason: 'daily_limit_reached', remaining: 0 }
-    return { allowed: true, reason: 'free_quota', remaining }
+  if (isPaidPlan && !isExpired) {
+    return { allowed: true, reason: 'paid_user', remaining: -1 }
   }
 
-  // 5. 付费功能，免费用户检查每日免费次数
-  if (feature.free_daily_limit > 0) {
-    const today = new Date().toISOString().split('T')[0]
-    const usageRes = await pool.query(
-      'SELECT COUNT(*) as count FROM usage_logs WHERE user_id = $1 AND feature_key = $2 AND date_key = $3',
-      [userId, featureKey, today]
-    )
-    const used = parseInt(usageRes.rows[0].count)
-    const remaining = feature.free_daily_limit - used
-    if (remaining > 0) return { allowed: true, reason: 'free_quota', remaining }
+  // 4. 免费用户：检查每日次数限制
+  //    先看后台设置的 free_daily_limit
+  if (feature.free_daily_limit === 0) {
+    // 后台设为 0 次：付费功能，免费用户不可用
+    return { allowed: false, reason: 'paid_required', remaining: 0 }
   }
 
-  return { allowed: false, reason: 'paid_required', remaining: 0 }
+  const today = new Date().toISOString().split('T')[0]
+  const usageRes = await pool.query(
+    'SELECT COUNT(*) as count FROM usage_logs WHERE user_id = $1 AND feature_key = $2 AND date_key = $3',
+    [userId, featureKey, today]
+  )
+  const used = parseInt(usageRes.rows[0].count)
+  const remaining = feature.free_daily_limit - used
+
+  if (remaining <= 0) return { allowed: false, reason: 'daily_limit_reached', remaining: 0 }
+  return { allowed: true, reason: 'free_quota', remaining }
 }
 
-/**
- * 记录一次使用
- */
 async function logUsage(userId, featureKey, pool) {
   const today = new Date().toISOString().split('T')[0]
   await pool.query(

@@ -230,12 +230,13 @@ export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmi
       if (err instanceof ApiError) {
         if (err.code === 'LOGIN_REQUIRED')     { setModal('login_required');  setLoading(false); return }
         if (err.code === 'ANON_LIMIT_REACHED') { setModal('limit_reached');   setLoading(false); return }
+        if (err.code === 'DAILY_LIMIT_REACHED'){ setModal('limit_reached');   setLoading(false); return }
         if (err.code === 'PAID_REQUIRED')      { setModal('paid_required');   setLoading(false); return }
       }
       setResults(prev => [{
         module: activeModule,
         query: question,
-        response: lang === 'zh' ? '天机难测，请稍后再试。（连接失败）' : 'The oracle is momentarily silent. Please try again.',
+        response: lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is momentarily silent. Please try again.',
         reasoning: '',
         timestamp: new Date().toISOString(),
       }, ...prev])
