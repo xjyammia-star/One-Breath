@@ -5,7 +5,7 @@ import { useAuth } from '../utils/authContext'
 interface Props {
   lang: Lang
   setLang: (l: Lang) => void
-  onEnter: () => void
+  onEnter: (module?: number) => void
   onLogin: () => void
   hasUser: boolean
 }
@@ -47,7 +47,6 @@ const text = {
   },
 }
 
-// 八卦数据：符号 + 名称
 const BAGUA = [
   { gua: '☰', name: '乾', en: 'Heaven' },
   { gua: '☱', name: '兑', en: 'Lake' },
@@ -131,19 +130,12 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
       <div className="taiji-container">
         <div className="taiji-glow" />
         <svg viewBox="0 0 200 200" className="taiji-svg" aria-hidden="true">
-          {/* 底层：整个圆填黑（阴色）*/}
           <circle cx="100" cy="100" r="90" fill="#1a1612" />
-          {/* 右半圆：白色覆盖（阳色）*/}
           <path d="M100,10 A90,90 0 0,1 100,190 L100,100 Z" fill="#f5f0e8" />
-          {/* 上小圆：白色（阳中阳）*/}
           <circle cx="100" cy="55"  r="45" fill="#f5f0e8" />
-          {/* 下小圆：黑色（阴中阴）*/}
           <circle cx="100" cy="145" r="45" fill="#1a1612" />
-          {/* 阳中阴点 */}
           <circle cx="100" cy="55"  r="12" fill="#1a1612" />
-          {/* 阴中阳点 */}
           <circle cx="100" cy="145" r="12" fill="#f5f0e8" />
-          {/* 外圆边框 */}
           <circle cx="100" cy="100" r="90" fill="none" stroke="#1a1612" strokeWidth="1.5" />
         </svg>
         {/* 外圈八卦 */}
@@ -163,7 +155,6 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
 
       {/* ── 主标题区 ── */}
       <div className="hero">
-        {/* 顶部装饰线 */}
         <div className="hero-ornament hero-ornament-top" aria-hidden="true">
           <span className="orn-line" /><span className="orn-diamond">◆</span><span className="orn-line" />
         </div>
@@ -181,12 +172,11 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
         <p className="hero-tagline">{t.tagline}</p>
         <p className="hero-desc">{t.desc}</p>
 
-        {/* 底部装饰线 */}
         <div className="hero-ornament hero-ornament-bottom" aria-hidden="true">
           <span className="orn-line" /><span className="orn-diamond">◆</span><span className="orn-line" />
         </div>
 
-        <button className="enter-btn" onClick={onEnter}>
+        <button className="enter-btn" onClick={() => onEnter(0)}>
           <span className="enter-text">{hasUser ? t.return : t.enter}</span>
           <span className="enter-glyph">☯</span>
         </button>
@@ -195,7 +185,7 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
       {/* ── 三大模块预览 ── */}
       <div className="modules-preview">
         {t.modules.map((mod, i) => (
-          <div key={i} className={`module-card module-${i}`} onClick={onEnter}>
+          <div key={i} className={`module-card module-${i}`} onClick={() => onEnter(i)}>
             <div className="module-card-inner">
               <div className="module-gua">{['☰', '☷', '☯'][i]}</div>
               <div className="module-name">{mod}</div>

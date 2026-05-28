@@ -18,6 +18,7 @@ function AppInner() {
     const saved = localStorage.getItem('yiqitang_user')
     return saved ? JSON.parse(saved) : null
   })
+  const [initialModule, setInitialModule] = useState<number>(0)
 
   const saveProfile = (p: UserProfile) => {
     localStorage.setItem('yiqitang_user', JSON.stringify(p))
@@ -25,7 +26,6 @@ function AppInner() {
     setPage('dashboard')
   }
 
-  // 登录成功后自动跳转（替换原来的 setTimeout 写法）
   useEffect(() => {
     if (user && page === 'auth') {
       setPage(profile ? 'dashboard' : 'setup')
@@ -34,19 +34,19 @@ function AppInner() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f0ead8' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center',
+        justifyContent: 'center', background: '#f0ead8' }}>
         <div style={{ fontSize: '2rem', color: '#9b7d3a', letterSpacing: '0.3em' }}>一炁堂</div>
       </div>
     )
   }
 
-  // 点「入堂」：未填命盘不强制登录，直接进 setup
-  const handleEnter = () => {
+  const handleEnter = (module: number = 0) => {
+    setInitialModule(module)
     if (profile) setPage('dashboard')
     else setPage('setup')
   }
 
-  // 跳转登录页
   const handleLogin = () => setPage('auth')
 
   return (
@@ -71,6 +71,7 @@ function AppInner() {
           lang={lang}
           setLang={setLang}
           user={profile}
+          initialModule={initialModule}
           onBack={() => setPage('landing')}
           onLogin={handleLogin}
           onAdmin={() => setPage('admin')}

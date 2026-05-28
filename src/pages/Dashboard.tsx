@@ -10,6 +10,7 @@ interface Props {
   lang: Lang
   setLang: (l: Lang) => void
   user: UserProfile
+  initialModule: number
   onBack: () => void
   onReset: () => void
   onAdmin?: () => void
@@ -28,6 +29,7 @@ const MODULE_FEATURES: Record<Module, { basic: FeatureKey; deep: FeatureKey }> =
   world:  { basic: 'world_year',   deep: 'world_timing' },
 }
 
+const MODULE_IDS: Module[] = ['self', 'people', 'world']
 const LOGIN_REQUIRED_MODULES: Module[] = ['people', 'world']
 const PAID_PLANS = ['monthly', 'quarterly', 'yearly']
 
@@ -156,7 +158,6 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh' | 'en
 
   return (
     <div className="result-card">
-      {/* 古籍来源浮层 */}
       {activeSource && (
         <SourceModal
           source={activeSource}
@@ -223,10 +224,10 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh' | 'en
   )
 }
 
-export default function Dashboard({ lang, setLang, user, onBack, onReset, onAdmin, onLogin }: Props) {
+export default function Dashboard({ lang, setLang, user, initialModule, onBack, onReset, onAdmin, onLogin }: Props) {
   const t = text[lang]
   const { user: authUser, logout } = useAuth()
-  const [activeModule, setActiveModule] = useState<Module>('self')
+  const [activeModule, setActiveModule] = useState<Module>(MODULE_IDS[initialModule] ?? 'self')
   const [depthMode, setDepthMode] = useState<DepthMode>('basic')
   const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
