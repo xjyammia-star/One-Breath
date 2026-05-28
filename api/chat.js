@@ -167,6 +167,8 @@ export default async function handler(req, res) {
     console.log('[corpus search] combined:', combinedSearch)
 
     const { ref: corpusRef, sources: corpusSources } = await searchCorpus(combinedSearch, pool)
+    console.log('[corpus result] sources count:', corpusSources.length)
+    console.log('[corpus result] sources:', JSON.stringify(corpusSources.map(s => s.title)))
     const messagesWithRef = messages.map((m, i) =>
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
