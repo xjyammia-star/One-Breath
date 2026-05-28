@@ -141,13 +141,32 @@ export default async function handler(req, res) {
 
     // 检索古籍：只用问题本身做关键词匹配，不用含八字信息的完整上下文
     const lastMsg = messages[messages.length - 1]?.content || ''
-    // 从完整消息里提取【问题】之后的部分，避免八字信息干扰关键词提取
-    const questionOnly = lastMsg.includes('【问题】')
-      ? lastMsg.split('【问题】').pop()?.trim() || lastMsg
-      : lastMsg.includes('【Question】')
-      ? lastMsg.split('【Question】').pop()?.trim() || lastMsg
-      : lastMsg.slice(-200)  // 取最后200字作为问题区域
-    const { ref: corpusRef, sources: corpusSources } = await searchCorpus(questionOnly, pool)
+
+    // 从完整消息里提取问题部分
+    let questionOnly = lastMsg
+    if (lastMsg.includes('\u3010\u95ee\u9898\u3011')) {
+      // 【问题】全角中文
+      questionOnly = lastMsg.split('\u3010\u95ee\u9898\u3011').pop()?.trim() || lastMsg
+    } else if (lastMsg.includes('【问题】')) {
+      questionOnly = lastMsg.split('【问题】').pop()?.trim() || lastMsg
+    } else if (lastMsg.includes('【Question】')) {
+      questionOnly = lastMsg.split('【Question】').pop()?.trim() || lastMsg
+    } else {
+      questionOnly = lastMsg.slice(-200)
+    }
+
+    // 同时用问题词 + 八字关键词（日主五行）双重检索，提高命中率
+    const baziKeywords = []
+    const ganMap = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'}
+    for (const [gan, wx] of Object.entries(ganMap)) {
+      if (lastMsg.includes(gan)) baziKeywords.push(wx)
+    }
+    const combinedSearch = questionOnly + ' ' + [...new Set(baziKeywords)].join(' ')
+
+    console.log('[corpus search] questionOnly:', questionOnly)
+    console.log('[corpus search] combined:', combinedSearch)
+
+    const { ref: corpusRef, sources: corpusSources } = await searchCorpus(combinedSearch, pool)
     const messagesWithRef = messages.map((m, i) =>
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
