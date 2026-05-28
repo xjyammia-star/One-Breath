@@ -45,8 +45,13 @@ const GAN_WUXING: Record<string, string> = {
   庚:'金',辛:'金',壬:'水',癸:'水',
 }
 
-// 地支藏干（主气1.0，中气0.5，余气0.25）
-// 格式：{ 五行: 权重 }
+// 地支主气五行（与 AI 保持一致：每个地支只算主气=1整数）
+const ZHI_WUXING: Record<string, string> = {
+  子:'水', 丑:'土', 寅:'木', 卯:'木', 辰:'土', 巳:'火',
+  午:'火', 未:'土', 申:'金', 酉:'金', 戌:'土', 亥:'水',
+}
+
+// 地支藏干（仅用于地支文字颜色着色，不参与计数）
 const ZHI_CANGGAN: Record<string, Record<string, number>> = {
   子: { 水: 1.0 },
   丑: { 土: 1.0, 金: 0.5, 水: 0.25 },
@@ -87,28 +92,20 @@ const NAYIN: Record<string, string> = {
   戊午:'天上火',己未:'天上火',庚申:'石榴木',辛酉:'石榴木',壬戌:'大海水',癸亥:'大海水',
 }
 
-// 含藏干权重的五行计算（天干=1分，地支按藏干权重）
+// 五行计算：与 AI 保持完全一致
+// 天干=1分（取其五行），地支=1分（只取主气）
+// 共8个字，最高8分，全部整数
 function calcWuxingDist(bazi: ReturnType<typeof getBaZi>) {
   const dist: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 }
-  const gans  = [bazi.yearGan, bazi.monthGan, bazi.dayGan, bazi.hourGan]
-  const zhis  = [bazi.yearZhi, bazi.monthZhi, bazi.dayZhi, bazi.hourZhi]
-  // 天干每个1分
+  const gans = [bazi.yearGan, bazi.monthGan, bazi.dayGan, bazi.hourGan]
+  const zhis = [bazi.yearZhi, bazi.monthZhi, bazi.dayZhi, bazi.hourZhi]
   for (const g of gans) {
     const wx = GAN_WUXING[g]
     if (wx) dist[wx] += 1
   }
-  // 地支按藏干权重
   for (const z of zhis) {
-    const cang = ZHI_CANGGAN[z]
-    if (cang) {
-      for (const [wx, w] of Object.entries(cang)) {
-        dist[wx] += w
-      }
-    }
-  }
-  // 保留1位小数
-  for (const k of Object.keys(dist)) {
-    dist[k] = Math.round(dist[k] * 10) / 10
+    const wx = ZHI_WUXING[z]
+    if (wx) dist[wx] += 1
   }
   return dist
 }
