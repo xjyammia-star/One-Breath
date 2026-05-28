@@ -131,11 +131,20 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
       <div className="taiji-container">
         <div className="taiji-glow" />
         <svg viewBox="0 0 200 200" className="taiji-svg" aria-hidden="true">
-          <circle cx="100" cy="100" r="90" className="taiji-outer" />
-          <path d="M100,10 A90,90 0 0,0 100,190 A45,45 0 0,0 100,100 A45,45 0 0,1 100,10 Z" className="taiji-yin" />
-          <path d="M100,10 A90,90 0 0,1 100,190 A45,45 0 0,1 100,100 A45,45 0 0,0 100,10 Z" className="taiji-yang" />
-          <circle cx="100" cy="55"  r="12" className="taiji-yang-dot" />
-          <circle cx="100" cy="145" r="12" className="taiji-yin-dot" />
+          {/* 底层：整个圆填黑（阴色）*/}
+          <circle cx="100" cy="100" r="90" fill="#1a1612" />
+          {/* 右半圆：白色覆盖（阳色）*/}
+          <path d="M100,10 A90,90 0 0,1 100,190 L100,100 Z" fill="#f5f0e8" />
+          {/* 上小圆：白色（阳中阳）*/}
+          <circle cx="100" cy="55"  r="45" fill="#f5f0e8" />
+          {/* 下小圆：黑色（阴中阴）*/}
+          <circle cx="100" cy="145" r="45" fill="#1a1612" />
+          {/* 阳中阴点 */}
+          <circle cx="100" cy="55"  r="12" fill="#1a1612" />
+          {/* 阴中阳点 */}
+          <circle cx="100" cy="145" r="12" fill="#f5f0e8" />
+          {/* 外圆边框 */}
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#1a1612" strokeWidth="1.5" />
         </svg>
         {/* 外圈八卦 */}
         <div className="taiji-bagua-ring">
