@@ -32,18 +32,36 @@ const MODULE_IDS: Module[] = ['self', 'people', 'world']
 const LOGIN_REQUIRED_MODULES: Module[] = ['people', 'world']
 const PAID_PLANS = ['monthly', 'quarterly', 'yearly']
 
+// 五行颜色（加深，确保可读性）
 const WUXING_COLORS: Record<string, string> = {
-  木: '#4a7c59', 火: '#c0392b', 土: '#9b7d3a', 金: '#8a9bb0', 水: '#3d7d6e',
+  木: '#2d6e45', 火: '#b52a1e', 土: '#7a5f1a', 金: '#5a7a9e', 水: '#1e6657',
+}
+const WUXING_STROKE: Record<string, string> = {
+  木: '#3a8a56', 火: '#d03525', 土: '#9b7a20', 金: '#6a8fb5', 水: '#26837a',
 }
 
 const GAN_WUXING: Record<string, string> = {
   甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',
   庚:'金',辛:'金',壬:'水',癸:'水',
 }
-const ZHI_WUXING: Record<string, string> = {
-  子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',
-  午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水',
+
+// 地支藏干（主气1.0，中气0.5，余气0.25）
+// 格式：{ 五行: 权重 }
+const ZHI_CANGGAN: Record<string, Record<string, number>> = {
+  子: { 水: 1.0 },
+  丑: { 土: 1.0, 金: 0.5, 水: 0.25 },
+  寅: { 木: 1.0, 火: 0.5, 土: 0.25 },
+  卯: { 木: 1.0 },
+  辰: { 土: 1.0, 木: 0.5, 水: 0.25 },
+  巳: { 火: 1.0, 土: 0.5, 金: 0.25 },
+  午: { 火: 1.0, 土: 0.5 },
+  未: { 土: 1.0, 火: 0.5, 木: 0.25 },
+  申: { 金: 1.0, 水: 0.5, 土: 0.25 },
+  酉: { 金: 1.0 },
+  戌: { 土: 1.0, 火: 0.5, 金: 0.25 },
+  亥: { 水: 1.0, 木: 0.5 },
 }
+
 const GAN_YIN_YANG: Record<string, string> = {
   甲:'阳',乙:'阴',丙:'阳',丁:'阴',戊:'阳',己:'阴',
   庚:'阳',辛:'阴',壬:'阳',癸:'阴',
@@ -69,12 +87,28 @@ const NAYIN: Record<string, string> = {
   戊午:'天上火',己未:'天上火',庚申:'石榴木',辛酉:'石榴木',壬戌:'大海水',癸亥:'大海水',
 }
 
+// 含藏干权重的五行计算（天干=1分，地支按藏干权重）
 function calcWuxingDist(bazi: ReturnType<typeof getBaZi>) {
-  const chars = [bazi.yearGan, bazi.yearZhi, bazi.monthGan, bazi.monthZhi, bazi.dayGan, bazi.dayZhi, bazi.hourGan, bazi.hourZhi]
-  const dist: Record<string, number> = { 木:0, 火:0, 土:0, 金:0, 水:0 }
-  for (const c of chars) {
-    const wx = GAN_WUXING[c] || ZHI_WUXING[c]
-    if (wx) dist[wx]++
+  const dist: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 }
+  const gans  = [bazi.yearGan, bazi.monthGan, bazi.dayGan, bazi.hourGan]
+  const zhis  = [bazi.yearZhi, bazi.monthZhi, bazi.dayZhi, bazi.hourZhi]
+  // 天干每个1分
+  for (const g of gans) {
+    const wx = GAN_WUXING[g]
+    if (wx) dist[wx] += 1
+  }
+  // 地支按藏干权重
+  for (const z of zhis) {
+    const cang = ZHI_CANGGAN[z]
+    if (cang) {
+      for (const [wx, w] of Object.entries(cang)) {
+        dist[wx] += w
+      }
+    }
+  }
+  // 保留1位小数
+  for (const k of Object.keys(dist)) {
+    dist[k] = Math.round(dist[k] * 10) / 10
   }
   return dist
 }
@@ -235,37 +269,41 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh'|'en' 
   )
 }
 
-// 五行五边形图
+// ── 五行五边形图（颜色加深，填充清晰）──
 function WuxingChart({ dist, lang }: { dist: Record<string, number>; lang: 'zh'|'en' }) {
   const keys = ['木','火','土','金','水']
-  const cx = 80, cy = 80, r = 52
+  const cx = 72, cy = 72, r = 50
   const angles = keys.map((_, i) => (i * 72 - 90) * Math.PI / 180)
   const pts = angles.map(a => ({ x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }))
-  const max = Math.max(...Object.values(dist), 1)
+  const maxVal = Math.max(...Object.values(dist), 1)
   const valuePts = keys.map((k, i) => {
-    const ratio = dist[k] / (max * 1.15)
+    const ratio = Math.min(dist[k] / maxVal, 1)
     return { x: cx + r * ratio * Math.cos(angles[i]), y: cy + r * ratio * Math.sin(angles[i]) }
   })
-  const polygon = pts.map(p => `${p.x},${p.y}`).join(' ')
   const valuePoly = valuePts.map(p => `${p.x},${p.y}`).join(' ')
-  const lp = angles.map(a => ({ x: cx + (r + 16) * Math.cos(a), y: cy + (r + 16) * Math.sin(a) }))
+  const lp = angles.map(a => ({ x: cx + (r + 14) * Math.cos(a), y: cy + (r + 14) * Math.sin(a) }))
   const enLabels = ['Wood','Fire','Earth','Metal','Water']
+
   return (
-    <svg viewBox="0 0 160 160" className="wuxing-svg">
+    <svg viewBox="0 0 144 144" className="wuxing-svg">
+      {/* 背景网格 */}
       {[0.33, 0.66, 1].map(ratio => (
         <polygon key={ratio}
           points={pts.map(p => `${cx+(p.x-cx)*ratio},${cy+(p.y-cy)*ratio}`).join(' ')}
-          fill="none" stroke="rgba(155,125,58,0.15)" strokeWidth="0.8"
+          fill="none" stroke="rgba(90,70,30,0.25)" strokeWidth="0.8"
         />
       ))}
-      {pts.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(155,125,58,0.1)" strokeWidth="0.8" />)}
-      <polygon points={valuePoly} fill="rgba(155,125,58,0.15)" stroke="rgba(155,125,58,0.55)" strokeWidth="1.2" />
+      {pts.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(90,70,30,0.2)" strokeWidth="0.8" />)}
+      {/* 数值多边形 - 填充色加深 */}
+      <polygon points={valuePoly} fill="rgba(90,70,30,0.22)" stroke="rgba(90,70,30,0.7)" strokeWidth="1.5" />
+      {/* 各顶点用对应五行颜色的圆点 */}
       {valuePts.map((p, i) => (
-        <circle key={i} cx={p.x} cy={p.y} r="2.5" fill={WUXING_COLORS[keys[i]]} />
+        <circle key={i} cx={p.x} cy={p.y} r="3.5" fill={WUXING_STROKE[keys[i]]} />
       ))}
+      {/* 标签 */}
       {lp.map((p, i) => (
         <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
-          fontSize="8.5" fill={WUXING_COLORS[keys[i]]} fontFamily="Noto Serif SC, serif" fontWeight="500">
+          fontSize="9" fill={WUXING_COLORS[keys[i]]} fontFamily="Noto Serif SC, serif" fontWeight="600">
           {lang === 'zh' ? keys[i] : enLabels[i]}
         </text>
       ))}
@@ -377,73 +415,82 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
       <div className="dash-body">
         {/* ── 左侧星盘面板 ── */}
         <aside className="dash-sidebar">
+
+          {/* 个人信息：紧凑版 */}
           <div className="profile-card">
-            <div className="profile-avatar">
-              <span className="avatar-glyph">
-                {user.gender === 'male' ? '乾' : user.gender === 'female' ? '坤' : '中'}
-              </span>
+            <div className="profile-avatar-row">
+              <div className="profile-avatar-sm">
+                <span className="avatar-glyph-sm">
+                  {user.gender === 'male' ? '乾' : user.gender === 'female' ? '坤' : '中'}
+                </span>
+              </div>
+              <div className="profile-info-col">
+                <div className="profile-name">{user.name}</div>
+                <div className="profile-gender">{t.genderMap[user.gender]}</div>
+              </div>
             </div>
-            <div className="profile-name">{user.name}</div>
-            <div className="profile-gender">{t.genderMap[user.gender]}</div>
-            <div className="profile-dates">
-              <div className="date-row">
-                <span className="date-label">{t.birthInfo}：</span>
-                <span className="date-val">{user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00</span>
+            <div className="profile-dates-compact">
+              <div className="date-row-sm">
+                <span className="date-label-sm">{t.birthInfo}</span>
+                <span className="date-val-sm">{user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00</span>
               </div>
               {user.lunarDate && (
-                <div className="date-row">
-                  <span className="date-label">{t.lunarLabel}：</span>
-                  <span className="date-val">{user.lunarDate}</span>
+                <div className="date-row-sm">
+                  <span className="date-label-sm">{t.lunarLabel}</span>
+                  <span className="date-val-sm">{user.lunarDate}</span>
                 </div>
               )}
-              <div className="date-row">
-                <span className="date-label">{t.place}：</span>
-                <span className="date-val">{user.birthPlace}</span>
+              <div className="date-row-sm">
+                <span className="date-label-sm">{t.place}</span>
+                <span className="date-val-sm">{user.birthPlace}</span>
               </div>
             </div>
           </div>
 
-          {/* 四柱八字 */}
+          {/* 四柱八字：紧凑版 */}
           <div className="sidebar-section">
             <div className="sidebar-section-title">{t.bazi}</div>
             <div className="bazi-pillars-v2">
               {[
-                { top: bazi.yearGan,  bot: bazi.yearZhi,  lbl: lang === 'zh' ? '年' : 'Year' },
-                { top: bazi.monthGan, bot: bazi.monthZhi, lbl: lang === 'zh' ? '月' : 'Month' },
-                { top: bazi.dayGan,   bot: bazi.dayZhi,   lbl: lang === 'zh' ? '日' : 'Day' },
-                { top: bazi.hourGan,  bot: bazi.hourZhi,  lbl: lang === 'zh' ? '时' : 'Hour' },
+                { top: bazi.yearGan,  bot: bazi.yearZhi,  lbl: lang === 'zh' ? '年' : 'Y' },
+                { top: bazi.monthGan, bot: bazi.monthZhi, lbl: lang === 'zh' ? '月' : 'M' },
+                { top: bazi.dayGan,   bot: bazi.dayZhi,   lbl: lang === 'zh' ? '日' : 'D' },
+                { top: bazi.hourGan,  bot: bazi.hourZhi,  lbl: lang === 'zh' ? '时' : 'H' },
               ].map((p, i) => (
                 <div key={i} className={`bazi-pillar-v2${i === 2 ? ' day-pillar' : ''}`}>
                   <div className="pillar-lbl">{p.lbl}</div>
                   <div className="pillar-gan-v2" style={{ color: WUXING_COLORS[GAN_WUXING[p.top]] || 'var(--ink)' }}>{p.top}</div>
-                  <div className="pillar-zhi-v2" style={{ color: WUXING_COLORS[ZHI_WUXING[p.bot]] || 'var(--text-secondary)' }}>{p.bot}</div>
+                  <div className="pillar-zhi-v2" style={{ color: WUXING_COLORS[GAN_WUXING[p.top] && ZHI_CANGGAN[p.bot] ? Object.keys(ZHI_CANGGAN[p.bot])[0] : ''] || '#5a4f42' }}>{p.bot}</div>
                   {i === 2 && <div className="day-pillar-label">{lang === 'zh' ? '日主' : 'DM'}</div>}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 五行星盘 */}
+          {/* 五行分布：图+条形横排 */}
           <div className="sidebar-section">
             <div className="sidebar-section-title">{t.wuxing}</div>
-            <div className="wuxing-chart-wrap">
+            <div className="wuxing-layout">
               <WuxingChart dist={wuxingDist} lang={lang} />
-            </div>
-            <div className="wuxing-bars">
-              {['木','火','土','金','水'].map(wx => (
-                <div key={wx} className="wuxing-bar-row">
-                  <span className="wuxing-bar-label" style={{ color: WUXING_COLORS[wx] }}>{wx}</span>
-                  <div className="wuxing-bar-track">
-                    <div className="wuxing-bar-fill" style={{ width: `${(wuxingDist[wx] / 8) * 100}%`, background: WUXING_COLORS[wx] }} />
+              <div className="wuxing-bars">
+                {['木','火','土','金','水'].map(wx => (
+                  <div key={wx} className="wuxing-bar-row">
+                    <span className="wuxing-bar-label" style={{ color: WUXING_COLORS[wx] }}>{wx}</span>
+                    <div className="wuxing-bar-track">
+                      <div className="wuxing-bar-fill" style={{
+                        width: `${Math.min((wuxingDist[wx] / 8) * 100, 100)}%`,
+                        background: WUXING_STROKE[wx],
+                      }} />
+                    </div>
+                    <span className="wuxing-bar-count">{wuxingDist[wx]}</span>
                   </div>
-                  <span className="wuxing-bar-count">{wuxingDist[wx]}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* 命主信息 */}
-          <div className="sidebar-section">
+          {/* 命主信息：横排两列 */}
+          <div className="sidebar-section sidebar-section-last">
             <div className="sidebar-section-title">{lang === 'zh' ? '命主信息' : 'Chart Info'}</div>
             <div className="chart-info-grid">
               <div className="chart-info-item">
@@ -468,7 +515,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
 
         {/* ── 右侧主内容 ── */}
         <main className="dash-main">
-          {/* 模块 Tab 导航 */}
           <div className="module-tabs-bar">
             <div className="module-tabs-group">
               {t.modules.map(mod => {
