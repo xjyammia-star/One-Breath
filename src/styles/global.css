@@ -868,3 +868,37 @@ input, textarea, select { font-family: var(--font-zh); }
 .source-modal-label  { padding: 0.6rem 1.5rem 0; font-size: 0.7rem; color: var(--text-muted); letter-spacing: 0.12em; }
 .source-modal-text   { padding: 1rem; margin: 0 1.5rem 0.5rem; font-family: 'Noto Serif SC','STKaiti',serif; font-size: 0.95rem; line-height: 2.1; color: rgba(245,240,232,0.88); letter-spacing: 0.08em; border-left: 2px solid rgba(155,125,58,0.3); background: rgba(26,22,18,0.3); }
 .source-modal-note   { padding: 0.75rem 1.5rem 1.25rem; font-size: 0.75rem; color: rgba(245,240,232,0.35); letter-spacing: 0.06em; line-height: 1.7; font-style: italic; }
+
+/* ── 大运 ── */
+.dayun-start {
+  font-size: 0.7rem; color: var(--bronze);
+  text-align: center; margin-bottom: 0.5rem;
+  letter-spacing: 0.08em;
+}
+.dayun-list {
+  display: flex; flex-direction: column; gap: 0.22rem;
+}
+.dayun-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 0.28rem 0.55rem;
+  background: rgba(26,22,18,0.03);
+  border: 1px solid rgba(155,125,58,0.15);
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+.dayun-item.dayun-current {
+  background: rgba(155,125,58,0.12);
+  border-color: var(--bronze);
+}
+.dayun-pillar {
+  font-weight: 600; color: #2a2420; letter-spacing: 0.05em;
+}
+.dayun-item.dayun-current .dayun-pillar {
+  color: var(--bronze);
+}
+.dayun-age {
+  font-size: 0.68rem; color: #7a6f62;
+}
+.dayun-item.dayun-current .dayun-age {
+  color: var(--bronze); opacity: 0.8;
+}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
 import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource } from '../utils/ai'
-import { getBaZi } from '../utils/bazi'
+import { getBaZi, getDaYun, formatDaYun } from '../utils/bazi'
 import OracleLoader from '../components/OracleLoader'
 
 interface Props {
@@ -320,6 +320,10 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
 
   const bazi = getBaZi(user.birthYear, user.birthMonth, user.birthDay, user.birthHour)
   const wuxingDist = calcWuxingDist(bazi)
+  const currentYear = new Date().getFullYear()
+  const daYun = getDaYun(bazi, user.birthYear, user.birthMonth, user.birthDay, user.birthHour, user.gender)
+  const currentAge = currentYear - user.birthYear
+  const currentDaYun = daYun.pillars.find(p => currentAge >= p.fromAge && currentAge <= p.toAge)
   const dayMasterWx = GAN_WUXING[bazi.dayGan] || ''
   const dayMasterYY = GAN_YIN_YANG[bazi.dayGan] || ''
   const zodiac = lang === 'zh' ? ZHI_ZODIAC[bazi.yearZhi] : ZHI_ZODIAC_EN[bazi.yearZhi]
@@ -508,6 +512,29 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               )}
             </div>
           </div>
+
+          {/* 大运 */}
+          {daYun.pillars.length > 0 && (
+            <div className="sidebar-section sidebar-section-last">
+              <div className="sidebar-section-title">{lang === 'zh' ? '大运' : 'Da Yun'}</div>
+              <div className="dayun-start">
+                {lang === 'zh'
+                  ? `${daYun.startAge}岁起运 · 当前${currentAge}岁`
+                  : `Starts age ${daYun.startAge} · Now ${currentAge}`}
+              </div>
+              <div className="dayun-list">
+                {daYun.pillars.slice(0, 6).map((p, i) => {
+                  const isCurrent = currentAge >= p.fromAge && currentAge <= p.toAge
+                  return (
+                    <div key={i} className={`dayun-item${isCurrent ? ' dayun-current' : ''}`}>
+                      <span className="dayun-pillar">{p.gan}{p.zhi}</span>
+                      <span className="dayun-age">{p.fromAge}–{p.toAge}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </aside>
 
         {/* ── 右侧主内容 ── */}

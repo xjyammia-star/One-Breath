@@ -1,6 +1,6 @@
 // src/utils/ai.ts
 import { UserProfile, BaZi, Module, Lang } from '../types'
-import { GAN_WUXING, ZHI_WUXING } from './bazi'
+import { GAN_WUXING, ZHI_WUXING, getDaYun, formatDaYun } from './bazi'
 
 export type FeatureKey =
   | 'self_basic' | 'self_deep'
@@ -105,6 +105,10 @@ function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
   // 按数值从高到低排序
   const wuxingSorted = Object.entries(wuxing).sort(([,a],[,b]) => b - a)
 
+  // 计算大运
+  const daYun = getDaYun(bazi, user.birthYear, user.birthMonth, user.birthDay, user.birthHour, user.gender)
+  const daYunStr = formatDaYun(daYun, currentYear, user.birthYear, lang)
+
   if (lang === 'zh') {
     const wuxingLines = wuxingSorted.map(([k, v]) => `  ${k}：${v} 个`).join('\n')
     return `
@@ -125,9 +129,11 @@ function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
 【五行分布——系统已精确计算，严格以此为准，禁止重新计算】
 计算规则：天干每字=1分，地支按主气=1分，共8字合计8分
 ${wuxingLines}
+
+【大运排盘——系统已精确计算，严格以此为准，禁止重新计算】
+${daYunStr}
 `.trim()
   } else {
-    const wuxingLines = wuxingSorted.map(([k, v]) => `  ${k}: ${v}`).join('\n')
     const enNames: Record<string,string> = {木:'Wood',火:'Fire',土:'Earth',金:'Metal',水:'Water'}
     const wuxingLinesEn = wuxingSorted.map(([k, v]) => `  ${enNames[k]}: ${v}`).join('\n')
     return `
@@ -145,9 +151,12 @@ Month: ${bazi.monthGan}${bazi.monthZhi} (${bazi.monthGan}=${GAN_WUXING[bazi.mont
 Day: ${bazi.dayGan}${bazi.dayZhi} (${bazi.dayGan}=${GAN_WUXING[bazi.dayGan]}, ${bazi.dayZhi}=${ZHI_WUXING[bazi.dayZhi]}) ← Day Master
 Hour: ${bazi.hourGan}${bazi.hourZhi} (${bazi.hourGan}=${GAN_WUXING[bazi.hourGan]}, ${bazi.hourZhi}=${ZHI_WUXING[bazi.hourZhi]})
 
-【Five Elements — pre-calculated by system, use EXACTLY these values, DO NOT recalculate】
+【Five Elements — pre-calculated, use EXACTLY these values, DO NOT recalculate】
 Rule: each Heavenly Stem = 1 point, each Earthly Branch main qi = 1 point, total 8 points
 ${wuxingLinesEn}
+
+【Da Yun — pre-calculated, use EXACTLY these values, DO NOT recalculate】
+${daYunStr}
 `.trim()
   }
 }
