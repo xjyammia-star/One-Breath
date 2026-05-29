@@ -440,10 +440,11 @@ input, textarea, select { font-family: var(--font-zh); }
 .dash-title { font-size: 1.2rem; font-weight: 500; letter-spacing: 0.25em; color: var(--ink); }
 
 .text-btn {
-  font-size: 0.85rem; color: var(--text-muted); letter-spacing: 0.1em;
+  font-size: 0.85rem; color: #3a2e25; letter-spacing: 0.1em; font-weight: 500;
   padding: 0.25rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid transparent;
 }
 .text-btn:hover        { color: var(--ink); border-color: var(--border-ink); }
+.text-btn.danger       { color: #8a2a1a; }
 .text-btn.danger:hover { color: var(--vermilion); border-color: var(--vermilion); }
 
 .dash-body { flex: 1; display: flex; overflow: hidden; max-height: calc(100vh - 60px); }
@@ -485,8 +486,8 @@ input, textarea, select { font-family: var(--font-zh); }
 }
 .sidebar-section-last { border-bottom: none; }
 .sidebar-section-title {
-  font-size: 0.66rem; letter-spacing: 0.2em; color: var(--bronze);
-  margin-bottom: 0.5rem; text-align: center; position: relative;
+  font-size: 0.68rem; letter-spacing: 0.2em; color: #7a5f20;
+  margin-bottom: 0.5rem; text-align: center; position: relative; font-weight: 600;
 }
 .sidebar-section-title::before,
 .sidebar-section-title::after {
@@ -519,28 +520,24 @@ input, textarea, select { font-family: var(--font-zh); }
 
 /* 五行分布：图与条形左右并排 */
 .wuxing-layout {
-  display: flex; align-items: center; gap: 0.6rem;
+  display: flex; align-items: center; gap: 0.5rem;
 }
-.wuxing-svg { width: 104px; height: 104px; flex-shrink: 0; }
+.wuxing-svg { width: 128px; height: 128px; flex-shrink: 0; }
 
-.wuxing-bars { display: flex; flex-direction: column; gap: 0.28rem; flex: 1; }
-.wuxing-bar-row { display: flex; align-items: center; gap: 0.35rem; }
+/* 五行数值：紧凑竖排，格式 木=2 */
+.wuxing-bars { display: flex; flex-direction: column; gap: 0.18rem; flex: 1; }
+.wuxing-bar-row { display: flex; align-items: center; gap: 0.3rem; }
 .wuxing-bar-label {
-  font-size: 0.75rem; font-family: var(--font-zh); font-weight: 600;
+  font-size: 0.78rem; font-family: var(--font-zh); font-weight: 700;
   width: 13px; text-align: center; flex-shrink: 0;
 }
-.wuxing-bar-track {
-  flex: 1; height: 5px; background: rgba(26,22,18,0.1);
-  border-radius: 3px; overflow: hidden;
-}
-.wuxing-bar-fill {
-  height: 100%; border-radius: 3px;
-  transition: width 0.6s var(--ease-brush);
-  min-width: 2px;
-}
+.wuxing-bar-track { display: none; } /* 隐藏条形图，只显示数字 */
 .wuxing-bar-count {
-  font-size: 0.72rem; color: #2a201a; font-weight: 600;
-  width: 22px; text-align: right; flex-shrink: 0;
+  font-size: 0.78rem; color: #1a1612; font-weight: 700;
+  flex-shrink: 0;
+}
+.wuxing-bar-eq {
+  font-size: 0.72rem; color: #6a5f55; flex-shrink: 0;
 }
 
 /* 命主信息格 */
@@ -603,8 +600,8 @@ input, textarea, select { font-family: var(--font-zh); }
   background: rgba(155,125,58,0.04);
   border-bottom: 1px solid rgba(155,125,58,0.15);
 }
-.module-subtitle-icon { font-size: 0.9rem; color: var(--bronze); opacity: 0.7; }
-.module-subtitle-text { font-size: 0.78rem; color: var(--text-muted); letter-spacing: 0.1em; }
+.module-subtitle-icon { font-size: 0.9rem; color: var(--bronze); }
+.module-subtitle-text { font-size: 0.78rem; color: #4a3f35; letter-spacing: 0.1em; font-weight: 500; }
 
 /* 快捷问题、输入区加内边距 */
 .quick-questions {
@@ -871,7 +868,7 @@ input, textarea, select { font-family: var(--font-zh); }
 
 /* ── 大运 ── */
 .dayun-start {
-  font-size: 0.7rem; color: var(--bronze);
+  font-size: 0.7rem; color: #7a5f20; font-weight: 600;
   text-align: center; margin-bottom: 0.5rem;
   letter-spacing: 0.08em;
 }
@@ -891,13 +888,13 @@ input, textarea, select { font-family: var(--font-zh); }
   border-color: var(--bronze);
 }
 .dayun-pillar {
-  font-weight: 600; color: #2a2420; letter-spacing: 0.05em;
+  font-weight: 700; color: #1a1210; letter-spacing: 0.05em;
 }
 .dayun-item.dayun-current .dayun-pillar {
   color: var(--bronze);
 }
 .dayun-age {
-  font-size: 0.68rem; color: #7a6f62;
+  font-size: 0.68rem; color: #4a3f35; font-weight: 500;
 }
 .dayun-item.dayun-current .dayun-age {
   color: var(--bronze); opacity: 0.8;

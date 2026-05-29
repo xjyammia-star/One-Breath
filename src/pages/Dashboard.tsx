@@ -473,13 +473,10 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                 {['木','火','土','金','水'].map(wx => (
                   <div key={wx} className="wuxing-bar-row">
                     <span className="wuxing-bar-label" style={{ color: WUXING_COLORS[wx] }}>{wx}</span>
-                    <div className="wuxing-bar-track">
-                      <div className="wuxing-bar-fill" style={{
-                        width: `${Math.min((wuxingDist[wx] / 8) * 100, 100)}%`,
-                        background: WUXING_STROKE[wx],
-                      }} />
-                    </div>
-                    <span className="wuxing-bar-count">{wuxingDist[wx]}</span>
+                    <span className="wuxing-bar-eq">=</span>
+                    <span className="wuxing-bar-count" style={{ color: wuxingDist[wx] > 0 ? WUXING_COLORS[wx] : '#9a8f82' }}>
+                      {wuxingDist[wx]}
+                    </span>
                   </div>
                 ))}
               </div>
