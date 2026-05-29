@@ -2,24 +2,26 @@
 const { getPool } = require('./_lib/db')
 const { getSession, checkFeatureAccess, logUsage } = require('./_lib/auth')
 
-// 所有合法的 feature key
 const VALID_FEATURE_KEYS = [
   'self_basic', 'self_deep',
   'people_basic', 'people_deep',
   'world_year', 'world_timing',
 ]
 
-// 无需登录即可使用的功能
 const FREE_FEATURES = ['self_basic']
-
-// 匿名用户每日限次（用 IP 计）
 const ANON_DAILY_LIMIT = 3
+
+// 命理核心典籍（检索时优先返回这些书）
+const MINGLI_TITLES = [
+  '滴天髓', '子平真诠', '穷通宝鉴', '渊海子平',
+  '三命通会', '神峰通考', '九龙道长八字', '张正照神策梅花',
+  '钦定协纪辨方书',
+]
 
 function extractKeywords(question) {
   const stopWords = ['怎么','如何','什么','为什么','哪些','吗','呢','啊','的','了','吧',
                      '我','你','他','她','它','这','那','有','没','是','在',
                      'what','how','why','is','are','the','a','an','my','me','i']
-  // 五行、天干、地支单字特殊处理，不受长度限制
   const singleCharAllowlist = new Set([
     '木','火','土','金','水',
     '甲','乙','丙','丁','戊','己','庚','辛','壬','癸',
@@ -30,29 +32,44 @@ function extractKeywords(question) {
     .replace(/[？?！!。，,【】]/g, ' ')
     .split(/\s+/)
     .filter(w => {
-      if (singleCharAllowlist.has(w)) return true       // 单字白名单直接保留
+      if (singleCharAllowlist.has(w)) return true
       return w.length >= 2 && !stopWords.includes(w.toLowerCase())
     })
-  return [...new Set(words)].slice(0, 8)  // 增加到8个关键词
+  return [...new Set(words)].slice(0, 8)
 }
 
 async function searchCorpus(question, pool) {
   try {
     const keywords = extractKeywords(question)
     if (keywords.length === 0) return { ref: '', sources: [] }
+
     const conditions = keywords.map((_, i) => `text ILIKE $${i + 1}`).join(' OR ')
     const params = keywords.map(k => `%${k}%`)
+
+    // 命理典籍列表（用于 SQL 排序）
+    const mingliList = MINGLI_TITLES.map(t => `'${t}'`).join(',')
+
+    // 优先返回命理典籍，其次其他 corpus，最后知识图谱
+    // 同优先级内用 random() 避免总返回同一条
     const result = await pool.query(
-      `SELECT text, title FROM corpus_chunks WHERE ${conditions}
-       ORDER BY CASE WHEN source_type = 'corpus' THEN 0 ELSE 1 END LIMIT 5`,
+      `SELECT text, title, source_type FROM corpus_chunks
+       WHERE (${conditions})
+       ORDER BY
+         CASE
+           WHEN title IN (${mingliList}) THEN 0
+           WHEN source_type = 'corpus' THEN 1
+           ELSE 2
+         END,
+         random()
+       LIMIT 6`,
       params
     )
+
     if (result.rows.length === 0) return { ref: '', sources: [] }
 
-    // 构建给 AI 的参考文本
-    const ref = '\n\n【相关古籍参考】\n' + result.rows.map(r => `【${r.title || '古籍'}】${r.text}`).join('\n\n')
+    const ref = '\n\n【相关古籍参考】\n' +
+      result.rows.map(r => `【${r.title || '古籍'}】${r.text}`).join('\n\n')
 
-    // 构建返回给前端的来源列表（去重）
     const seen = new Set()
     const sources = []
     for (const row of result.rows) {
@@ -65,6 +82,7 @@ async function searchCorpus(question, pool) {
 
     return { ref, sources }
   } catch (err) {
+    console.error('[corpus search error]', err)
     return { ref: '', sources: [] }
   }
 }
@@ -109,14 +127,12 @@ export default async function handler(req, res) {
     const apiKey = process.env.DEEPSEEK_API_KEY
     if (!apiKey) return res.status(500).json({ error: 'Missing DEEPSEEK_API_KEY' })
 
-    // 校验 featureKey，不合法则降级为 self_basic
     const featureKey = VALID_FEATURE_KEYS.includes(rawKey) ? rawKey : 'self_basic'
     const isFreeFeature = FREE_FEATURES.includes(featureKey)
 
     const session = await getSession(req, pool)
 
     if (session) {
-      // ── 已登录用户 ──
       const access = await checkFeatureAccess(session.user_id, featureKey, pool)
       if (!access.allowed) {
         const msg = access.reason === 'daily_limit_reached'
@@ -124,17 +140,17 @@ export default async function handler(req, res) {
           : access.reason === 'paid_required'
           ? '此功能需要订阅后使用'
           : '功能暂不可用'
-        return res.status(403).json({ error: msg, reason: access.reason, code: access.reason === 'paid_required' ? 'PAID_REQUIRED' : 'DAILY_LIMIT_REACHED' })
+        return res.status(403).json({
+          error: msg,
+          reason: access.reason,
+          code: access.reason === 'paid_required' ? 'PAID_REQUIRED' : 'DAILY_LIMIT_REACHED'
+        })
       }
       await logUsage(session.user_id, featureKey, pool)
 
     } else {
-      // ── 未登录用户 ──
       if (!isFreeFeature) {
-        return res.status(401).json({
-          error: '此功能需要登录后使用',
-          code: 'LOGIN_REQUIRED',
-        })
+        return res.status(401).json({ error: '此功能需要登录后使用', code: 'LOGIN_REQUIRED' })
       }
       const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim()
                || req.socket?.remoteAddress
@@ -150,15 +166,10 @@ export default async function handler(req, res) {
       await logAnonUsage(ip, featureKey, pool)
     }
 
-    // 检索古籍：只用问题本身做关键词匹配，不用含八字信息的完整上下文
     const lastMsg = messages[messages.length - 1]?.content || ''
 
-    // 从完整消息里提取问题部分
     let questionOnly = lastMsg
-    if (lastMsg.includes('\u3010\u95ee\u9898\u3011')) {
-      // 【问题】全角中文
-      questionOnly = lastMsg.split('\u3010\u95ee\u9898\u3011').pop()?.trim() || lastMsg
-    } else if (lastMsg.includes('【问题】')) {
+    if (lastMsg.includes('【问题】')) {
       questionOnly = lastMsg.split('【问题】').pop()?.trim() || lastMsg
     } else if (lastMsg.includes('【Question】')) {
       questionOnly = lastMsg.split('【Question】').pop()?.trim() || lastMsg
@@ -166,7 +177,6 @@ export default async function handler(req, res) {
       questionOnly = lastMsg.slice(-200)
     }
 
-    // 同时用问题词 + 八字关键词（日主五行）双重检索，提高命中率
     const baziKeywords = []
     const ganMap = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'}
     for (const [gan, wx] of Object.entries(ganMap)) {
@@ -174,17 +184,14 @@ export default async function handler(req, res) {
     }
     const combinedSearch = questionOnly + ' ' + [...new Set(baziKeywords)].join(' ')
 
-    console.log('[corpus search] questionOnly:', questionOnly)
-    console.log('[corpus search] combined:', combinedSearch)
-
+    console.log('[corpus search] question:', questionOnly.slice(0, 80))
     const { ref: corpusRef, sources: corpusSources } = await searchCorpus(combinedSearch, pool)
-    console.log('[corpus result] sources count:', corpusSources.length)
-    console.log('[corpus result] sources:', JSON.stringify(corpusSources.map(s => s.title)))
+    console.log('[corpus result] sources:', corpusSources.map(s => s.title).join(', '))
+
     const messagesWithRef = messages.map((m, i) =>
       i === messages.length - 1 && corpusRef ? { ...m, content: m.content + corpusRef } : m
     )
 
-    // 深度功能给更多 tokens（推理+结论内容多，需要足够空间）
     const isDeep = featureKey.endsWith('_deep') || featureKey === 'world_timing'
     const maxTokens = isDeep ? 3500 : 2000
 
