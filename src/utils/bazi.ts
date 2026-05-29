@@ -1,7 +1,6 @@
 // src/utils/bazi.ts
 // 八字（四柱）推算 + 大运起运计算
 import { BaZi, TianGan, DiZhi } from '../types'
-import { Solar } from 'lunar-javascript'
 
 const TIAN_GAN: TianGan[] = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸']
 const DI_ZHI: DiZhi[]     = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥']
@@ -114,7 +113,6 @@ export function getDaYun(
                       (!isMale && dayGanYinYang === 'yin')
 
     // 用 lunar-javascript 获取出生日的节气信息
-    const solar = Solar.fromYmd(birthYear, birthMonth, birthDay)
     // 计算出生日距离上/下一个节气的天数
     let daysToJieqi = 0
     try {
@@ -164,27 +162,31 @@ export function getDaYun(
  * 获取出生日到下一个节气的天数
  * 使用 lunar-javascript 的节气功能
  */
+// 24节气近似日期表：每月两个节气的大约日期（误差±1-2天）
+const JIEQI_APPROX: Record<number, [number, number]> = {
+  1:  [6,  20], 2:  [4,  19], 3:  [6,  21],
+  4:  [5,  20], 5:  [6,  21], 6:  [6,  21],
+  7:  [7,  23], 8:  [7,  23], 9:  [8,  23],
+  10: [8,  23], 11: [7,  22], 12: [7,  22],
+}
+
+function isJieqiDay(m: number, d: number): boolean {
+  const [d1, d2] = JIEQI_APPROX[m]
+  return d === d1 || d === d2
+}
+
 function getDaysToNextJieqi(year: number, month: number, day: number): number {
-  // 遍历后续天数找到下一个节气
-  // lunar-javascript 中节气通过 getLunar().getJieQi() 判断
   for (let offset = 1; offset <= 35; offset++) {
     const d = new Date(year, month - 1, day + offset)
-    const s = Solar.fromYmd(d.getFullYear(), d.getMonth() + 1, d.getDate())
-    const jieqi = s.getLunar().getJieQi()
-    if (jieqi) return offset
+    if (isJieqiDay(d.getMonth() + 1, d.getDate())) return offset
   }
   return 15
 }
 
-/**
- * 获取出生日到上一个节气的天数
- */
 function getDaysToPrevJieqi(year: number, month: number, day: number): number {
   for (let offset = 0; offset <= 35; offset++) {
     const d = new Date(year, month - 1, day - offset)
-    const s = Solar.fromYmd(d.getFullYear(), d.getMonth() + 1, d.getDate())
-    const jieqi = s.getLunar().getJieQi()
-    if (jieqi) return offset
+    if (isJieqiDay(d.getMonth() + 1, d.getDate())) return offset
   }
   return 15
 }
