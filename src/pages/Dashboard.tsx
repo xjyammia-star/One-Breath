@@ -1,9 +1,9 @@
 // src/pages/Dashboard.tsx
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
 import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource } from '../utils/ai'
-import { getBaZi, getDaYun, formatDaYun } from '../utils/bazi'
+import { getBaZi, getDaYun } from '../utils/bazi'
 import OracleLoader from '../components/OracleLoader'
 
 interface Props {
@@ -32,7 +32,6 @@ const MODULE_IDS: Module[] = ['self', 'people', 'world']
 const LOGIN_REQUIRED_MODULES: Module[] = ['people', 'world']
 const PAID_PLANS = ['monthly', 'quarterly', 'yearly']
 
-// 五行颜色（加深，确保可读性）
 const WUXING_COLORS: Record<string, string> = {
   木: '#2d6e45', 火: '#b52a1e', 土: '#7a5f1a', 金: '#5a7a9e', 水: '#1e6657',
 }
@@ -44,29 +43,16 @@ const GAN_WUXING: Record<string, string> = {
   甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',
   庚:'金',辛:'金',壬:'水',癸:'水',
 }
-
-// 地支主气五行（与 AI 保持一致：每个地支只算主气=1整数）
 const ZHI_WUXING: Record<string, string> = {
   子:'水', 丑:'土', 寅:'木', 卯:'木', 辰:'土', 巳:'火',
   午:'火', 未:'土', 申:'金', 酉:'金', 戌:'土', 亥:'水',
 }
-
-// 地支藏干（仅用于地支文字颜色着色，不参与计数）
 const ZHI_CANGGAN: Record<string, Record<string, number>> = {
-  子: { 水: 1.0 },
-  丑: { 土: 1.0, 金: 0.5, 水: 0.25 },
-  寅: { 木: 1.0, 火: 0.5, 土: 0.25 },
-  卯: { 木: 1.0 },
-  辰: { 土: 1.0, 木: 0.5, 水: 0.25 },
-  巳: { 火: 1.0, 土: 0.5, 金: 0.25 },
-  午: { 火: 1.0, 土: 0.5 },
-  未: { 土: 1.0, 火: 0.5, 木: 0.25 },
-  申: { 金: 1.0, 水: 0.5, 土: 0.25 },
-  酉: { 金: 1.0 },
-  戌: { 土: 1.0, 火: 0.5, 金: 0.25 },
-  亥: { 水: 1.0, 木: 0.5 },
+  子:{水:1.0}, 丑:{土:1.0,金:0.5,水:0.25}, 寅:{木:1.0,火:0.5,土:0.25},
+  卯:{木:1.0}, 辰:{土:1.0,木:0.5,水:0.25}, 巳:{火:1.0,土:0.5,金:0.25},
+  午:{火:1.0,土:0.5}, 未:{土:1.0,火:0.5,木:0.25}, 申:{金:1.0,水:0.5,土:0.25},
+  酉:{金:1.0}, 戌:{土:1.0,火:0.5,金:0.25}, 亥:{水:1.0,木:0.5},
 }
-
 const GAN_YIN_YANG: Record<string, string> = {
   甲:'阳',乙:'阴',丙:'阳',丁:'阴',戊:'阳',己:'阴',
   庚:'阳',辛:'阴',壬:'阳',癸:'阴',
@@ -92,22 +78,156 @@ const NAYIN: Record<string, string> = {
   戊午:'天上火',己未:'天上火',庚申:'石榴木',辛酉:'石榴木',壬戌:'大海水',癸亥:'大海水',
 }
 
-// 五行计算：与 AI 保持完全一致
-// 天干=1分（取其五行），地支=1分（只取主气）
-// 共8个字，最高8分，全部整数
+// 五行相生相克
+const SHENG: Record<string, string> = { 木:'火', 火:'土', 土:'金', 金:'水', 水:'木' }
+const KE:   Record<string, string> = { 木:'土', 火:'金', 土:'水', 金:'木', 水:'火' }
+
 function calcWuxingDist(bazi: ReturnType<typeof getBaZi>) {
-  const dist: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 }
+  const dist: Record<string, number> = { 木:0, 火:0, 土:0, 金:0, 水:0 }
   const gans = [bazi.yearGan, bazi.monthGan, bazi.dayGan, bazi.hourGan]
   const zhis = [bazi.yearZhi, bazi.monthZhi, bazi.dayZhi, bazi.hourZhi]
-  for (const g of gans) {
-    const wx = GAN_WUXING[g]
-    if (wx) dist[wx] += 1
-  }
-  for (const z of zhis) {
-    const wx = ZHI_WUXING[z]
-    if (wx) dist[wx] += 1
-  }
+  for (const g of gans) { const wx = GAN_WUXING[g]; if (wx) dist[wx] += 1 }
+  for (const z of zhis) { const wx = ZHI_WUXING[z]; if (wx) dist[wx] += 1 }
   return dist
+}
+
+// ── 今日卦象计算（纯前端）──────────────────────────────
+function getTodayOracle(bazi: ReturnType<typeof getBaZi>, wuxingDist: Record<string,number>, lang: 'zh'|'en') {
+  const now = new Date()
+  const y = now.getFullYear(), m = now.getMonth()+1, d = now.getDate()
+
+  // 今日日柱干支（用儒略日公式）
+  const a = Math.floor((14-m)/12), yy = y+4800-a, mm = m+12*a-3
+  const jd = d + Math.floor((153*mm+2)/5) + 365*yy +
+    Math.floor(yy/4) - Math.floor(yy/100) + Math.floor(yy/400) - 32045
+  const TIAN_GAN = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸']
+  const DI_ZHI   = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥']
+  const todayGan = TIAN_GAN[((jd+49)%10+10)%10]
+  const todayZhi = DI_ZHI[((jd+11)%12+12)%12]
+  const todayWx  = GAN_WUXING[todayGan]
+
+  // 今日五行与命主日主的关系
+  const dayMasterWx = GAN_WUXING[bazi.dayGan]
+  const userWeakest = Object.entries(wuxingDist).sort(([,a],[,b]) => a-b)[0][0]
+  const userStrongest = Object.entries(wuxingDist).sort(([,a],[,b]) => b-a)[0][0]
+
+  let relation = ''
+  let score = 3 // 1-5星
+  let yi = ''   // 宜
+  let ji = ''   // 忌
+  let quote = ''
+
+  if (todayWx === dayMasterWx) {
+    relation = lang === 'zh' ? '比和' : 'Resonance'
+    score = 4
+    yi  = lang === 'zh' ? '展示自我、主动出击' : 'Self-expression, taking initiative'
+    ji  = lang === 'zh' ? '过于自我、固执己见' : 'Over-asserting, stubbornness'
+    quote = lang === 'zh' ? '知己知彼，百战不殆' : 'Know yourself and you will win all battles'
+  } else if (SHENG[todayWx] === dayMasterWx) {
+    relation = lang === 'zh' ? '生扶' : 'Nourishing'
+    score = 5
+    yi  = lang === 'zh' ? '开展新项目、建立关系、投资' : 'New projects, building connections, investment'
+    ji  = lang === 'zh' ? '过于依赖他人' : 'Over-relying on others'
+    quote = lang === 'zh' ? '顺势而为，事半功倍' : 'Ride the tide and double your results'
+  } else if (SHENG[dayMasterWx] === todayWx) {
+    relation = lang === 'zh' ? '泄秀' : 'Expression'
+    score = 3
+    yi  = lang === 'zh' ? '创作、表达、分享' : 'Creative work, expression, sharing'
+    ji  = lang === 'zh' ? '过度消耗精力' : 'Overextending energy'
+    quote = lang === 'zh' ? '厚积薄发，水到渠成' : 'Deep roots bear great fruit'
+  } else if (KE[todayWx] === dayMasterWx) {
+    relation = lang === 'zh' ? '克制' : 'Challenge'
+    score = 2
+    yi  = lang === 'zh' ? '低调行事、整理内务' : 'Keep low profile, internal organization'
+    ji  = lang === 'zh' ? '重大决策、冲突争执' : 'Major decisions, conflicts'
+    quote = lang === 'zh' ? '曲则全，枉则直' : 'Yield and overcome; bend and be straight'
+  } else if (KE[dayMasterWx] === todayWx) {
+    relation = lang === 'zh' ? '克出' : 'Overcoming'
+    score = 4
+    yi  = lang === 'zh' ? '执行计划、解决问题' : 'Execute plans, solve problems'
+    ji  = lang === 'zh' ? '强行推进、树敌' : 'Forcing progress, making enemies'
+    quote = lang === 'zh' ? '刚柔并济，方为上策' : 'Balance strength with flexibility'
+  }
+
+  // 今日整体气场描述
+  const wxNameZh: Record<string,string> = {木:'木',火:'火',土:'土',金:'金',水:'水'}
+  const wxNameEn: Record<string,string> = {木:'Wood',火:'Fire',土:'Earth',金:'Metal',水:'Water'}
+  const wxDesc: Record<string, [string,string]> = {
+    木: ['生发之气旺盛，适合开创与生长', 'Wood energy rises — ideal for growth and new beginnings'],
+    火: ['光明热烈，思维活跃，人际运佳', 'Fire energy blazes — sharp mind, social connections flourish'],
+    土: ['厚重稳健，利于积累与守成', 'Earth energy grounds — steady progress, consolidation favored'],
+    金: ['收敛精准，执行力强，利于决断', 'Metal energy focuses — decisive action, precision at its peak'],
+    水: ['智慧流动，直觉敏锐，利于谋划', 'Water energy flows — intuition sharp, planning and strategy favored'],
+  }
+
+  const dateStr = lang === 'zh'
+    ? `${y}年${m}月${d}日`
+    : `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m-1]} ${d}, ${y}`
+
+  return {
+    dateStr,
+    todayGan, todayZhi, todayWx,
+    relation, score, yi, ji, quote,
+    desc: wxDesc[todayWx]?.[lang === 'zh' ? 0 : 1] || '',
+    wxColor: WUXING_COLORS[todayWx] || '#9b7d3a',
+    wxStroke: WUXING_STROKE[todayWx] || '#9b7d3a',
+  }
+}
+
+// 星级显示
+function Stars({ score }: { score: number }) {
+  return (
+    <span className="oracle-stars">
+      {[1,2,3,4,5].map(i => (
+        <span key={i} className={`oracle-star${i <= score ? ' lit' : ''}`}>◆</span>
+      ))}
+    </span>
+  )
+}
+
+// 今日卦象卡片
+function TodayOracle({ bazi, wuxingDist, lang }: {
+  bazi: ReturnType<typeof getBaZi>
+  wuxingDist: Record<string,number>
+  lang: 'zh'|'en'
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const oracle = useMemo(() => getTodayOracle(bazi, wuxingDist, lang), [lang])
+
+  return (
+    <div className="today-oracle" style={{ borderLeftColor: oracle.wxStroke }}>
+      <div className="oracle-header" onClick={() => setExpanded(v => !v)}>
+        <div className="oracle-header-left">
+          <span className="oracle-date">{oracle.dateStr}</span>
+          <span className="oracle-pillar" style={{ color: oracle.wxColor }}>
+            {oracle.todayGan}{oracle.todayZhi}
+          </span>
+          <span className="oracle-relation" style={{ color: oracle.wxColor }}>
+            {oracle.relation}
+          </span>
+          <Stars score={oracle.score} />
+        </div>
+        <span className="oracle-toggle">{expanded ? '▲' : '▼'}</span>
+      </div>
+
+      {expanded && (
+        <div className="oracle-body">
+          <p className="oracle-desc">{oracle.desc}</p>
+          <div className="oracle-yi-ji">
+            <div className="oracle-yi">
+              <span className="oracle-yi-label">{lang === 'zh' ? '宜' : 'Do'}</span>
+              <span className="oracle-yi-text">{oracle.yi}</span>
+            </div>
+            <div className="oracle-ji">
+              <span className="oracle-ji-label">{lang === 'zh' ? '忌' : 'Avoid'}</span>
+              <span className="oracle-ji-text">{oracle.ji}</span>
+            </div>
+          </div>
+          <p className="oracle-quote">「{oracle.quote}」</p>
+        </div>
+      )}
+    </div>
+  )
 }
 
 const text = {
@@ -266,7 +386,6 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh'|'en' 
   )
 }
 
-// ── 五行五边形图（颜色加深，填充清晰）──
 function WuxingChart({ dist, lang }: { dist: Record<string, number>; lang: 'zh'|'en' }) {
   const keys = ['木','火','土','金','水']
   const cx = 72, cy = 72, r = 50
@@ -280,10 +399,8 @@ function WuxingChart({ dist, lang }: { dist: Record<string, number>; lang: 'zh'|
   const valuePoly = valuePts.map(p => `${p.x},${p.y}`).join(' ')
   const lp = angles.map(a => ({ x: cx + (r + 14) * Math.cos(a), y: cy + (r + 14) * Math.sin(a) }))
   const enLabels = ['Wood','Fire','Earth','Metal','Water']
-
   return (
     <svg viewBox="0 0 144 144" className="wuxing-svg">
-      {/* 背景网格 */}
       {[0.33, 0.66, 1].map(ratio => (
         <polygon key={ratio}
           points={pts.map(p => `${cx+(p.x-cx)*ratio},${cy+(p.y-cy)*ratio}`).join(' ')}
@@ -291,13 +408,10 @@ function WuxingChart({ dist, lang }: { dist: Record<string, number>; lang: 'zh'|
         />
       ))}
       {pts.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(90,70,30,0.2)" strokeWidth="0.8" />)}
-      {/* 数值多边形 - 填充色加深 */}
       <polygon points={valuePoly} fill="rgba(90,70,30,0.22)" stroke="rgba(90,70,30,0.7)" strokeWidth="1.5" />
-      {/* 各顶点用对应五行颜色的圆点 */}
       {valuePts.map((p, i) => (
         <circle key={i} cx={p.x} cy={p.y} r="3.5" fill={WUXING_STROKE[keys[i]]} />
       ))}
-      {/* 标签 */}
       {lp.map((p, i) => (
         <text key={i} x={p.x} y={p.y} textAnchor="middle" dominantBaseline="middle"
           fontSize="9" fill={WUXING_COLORS[keys[i]]} fontFamily="Noto Serif SC, serif" fontWeight="600">
@@ -323,7 +437,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
   const currentYear = new Date().getFullYear()
   const daYun = getDaYun(bazi, user.birthYear, user.birthMonth, user.birthDay, user.birthHour, user.gender)
   const currentAge = currentYear - user.birthYear
-  const currentDaYun = daYun.pillars.find(p => currentAge >= p.fromAge && currentAge <= p.toAge)
   const dayMasterWx = GAN_WUXING[bazi.dayGan] || ''
   const dayMasterYY = GAN_YIN_YANG[bazi.dayGan] || ''
   const zodiac = lang === 'zh' ? ZHI_ZODIAC[bazi.yearZhi] : ZHI_ZODIAC_EN[bazi.yearZhi]
@@ -414,10 +527,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
       </header>
 
       <div className="dash-body">
-        {/* ── 左侧星盘面板 ── */}
         <aside className="dash-sidebar">
-
-          {/* 个人信息：紧凑版 */}
           <div className="profile-card">
             <div className="profile-avatar-row">
               <div className="profile-avatar-sm">
@@ -444,7 +554,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             </div>
           </div>
 
-          {/* 四柱八字：紧凑版 */}
           <div className="sidebar-section">
             <div className="sidebar-section-title">{t.bazi}</div>
             <div className="bazi-pillars-v2">
@@ -457,14 +566,13 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                 <div key={i} className={`bazi-pillar-v2${i === 2 ? ' day-pillar' : ''}`}>
                   <div className="pillar-lbl">{p.lbl}</div>
                   <div className="pillar-gan-v2" style={{ color: WUXING_COLORS[GAN_WUXING[p.top]] || 'var(--ink)' }}>{p.top}</div>
-                  <div className="pillar-zhi-v2" style={{ color: WUXING_COLORS[GAN_WUXING[p.top] && ZHI_CANGGAN[p.bot] ? Object.keys(ZHI_CANGGAN[p.bot])[0] : ''] || '#5a4f42' }}>{p.bot}</div>
+                  <div className="pillar-zhi-v2" style={{ color: WUXING_COLORS[ZHI_CANGGAN[p.bot] ? Object.keys(ZHI_CANGGAN[p.bot])[0] : ''] || '#5a4f42' }}>{p.bot}</div>
                   {i === 2 && <div className="day-pillar-label">{lang === 'zh' ? '日主' : 'DM'}</div>}
                 </div>
               ))}
             </div>
           </div>
 
-          {/* 五行分布：图+条形横排 */}
           <div className="sidebar-section">
             <div className="sidebar-section-title">{t.wuxing}</div>
             <div className="wuxing-layout">
@@ -483,7 +591,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             </div>
           </div>
 
-          {/* 命主信息：日主+纳音一行 */}
           <div className="sidebar-section sidebar-section-last">
             <div className="chart-info-row-single">
               <div className="chart-info-inline">
@@ -501,7 +608,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             </div>
           </div>
 
-          {/* 大运 */}
           {daYun.pillars.length > 0 && (
             <div className="sidebar-section sidebar-section-last">
               <div className="sidebar-section-title">{lang === 'zh' ? '大运' : 'Da Yun'}</div>
@@ -525,7 +631,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
           )}
         </aside>
 
-        {/* ── 右侧主内容 ── */}
         <main className="dash-main">
           <div className="module-tabs-bar">
             <div className="module-tabs-group">
@@ -551,6 +656,9 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               </button>
             </div>
           </div>
+
+          {/* ── 今日卦象 ── */}
+          <TodayOracle bazi={bazi} wuxingDist={wuxingDist} lang={lang} />
 
           <div className="module-subtitle-bar">
             <span className="module-subtitle-icon">{currentMod.icon}</span>

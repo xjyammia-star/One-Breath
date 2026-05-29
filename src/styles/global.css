@@ -910,3 +910,99 @@ input, textarea, select { font-family: var(--font-zh); }
   border-radius: var(--radius-sm); padding: 0.38rem 0.6rem;
   flex: 1; min-width: 80px;
 }
+
+/* ══════════════════════════════════════════════════════
+   今日卦象 (Today Oracle)
+══════════════════════════════════════════════════════ */
+
+.today-oracle {
+  margin: 0.6rem 1.5rem 0;
+  border-left: 3px solid var(--bronze);
+  background: rgba(245,240,232,0.75);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  overflow: hidden;
+  transition: all 0.2s var(--ease-brush);
+}
+
+.oracle-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.oracle-header:hover { background: rgba(155,125,58,0.06); }
+
+.oracle-header-left {
+  display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+}
+
+.oracle-date {
+  font-size: 0.72rem; color: #6a5f55; letter-spacing: 0.06em;
+}
+
+.oracle-pillar {
+  font-size: 1rem; font-weight: 700; letter-spacing: 0.05em;
+  font-family: var(--font-zh);
+}
+
+.oracle-relation {
+  font-size: 0.72rem; font-weight: 600; letter-spacing: 0.08em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 20px;
+  background: rgba(155,125,58,0.1);
+}
+
+.oracle-stars { display: flex; gap: 2px; }
+.oracle-star  { font-size: 0.5rem; color: rgba(155,125,58,0.25); }
+.oracle-star.lit { color: var(--bronze); }
+
+.oracle-toggle {
+  font-size: 0.55rem; color: var(--text-muted); flex-shrink: 0;
+}
+
+.oracle-body {
+  padding: 0 1rem 0.85rem;
+  border-top: 1px solid rgba(155,125,58,0.15);
+  animation: slide-in 0.2s var(--ease-brush);
+}
+
+.oracle-desc {
+  font-size: 0.82rem; color: #3a2e25; line-height: 1.7;
+  margin: 0.6rem 0 0.75rem;
+  letter-spacing: 0.04em;
+}
+
+.oracle-yi-ji {
+  display: flex; gap: 0.75rem; margin-bottom: 0.65rem;
+}
+
+.oracle-yi, .oracle-ji {
+  flex: 1; display: flex; gap: 0.4rem; align-items: flex-start;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+}
+
+.oracle-yi { background: rgba(61,125,110,0.08); border: 1px solid rgba(61,125,110,0.2); }
+.oracle-ji { background: rgba(192,57,43,0.06);  border: 1px solid rgba(192,57,43,0.18); }
+
+.oracle-yi-label {
+  font-weight: 700; color: #1e6657; flex-shrink: 0;
+  font-size: 0.82rem;
+}
+.oracle-ji-label {
+  font-weight: 700; color: #b52a1e; flex-shrink: 0;
+  font-size: 0.82rem;
+}
+
+.oracle-yi-text { color: #2a3a35; line-height: 1.5; }
+.oracle-ji-text { color: #3a2020; line-height: 1.5; }
+
+.oracle-quote {
+  font-size: 0.78rem; color: #7a6550;
+  text-align: center; font-style: italic;
+  letter-spacing: 0.1em; line-height: 1.6;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(155,125,58,0.12);
+}
