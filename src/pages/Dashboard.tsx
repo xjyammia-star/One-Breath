@@ -1,5 +1,5 @@
 // src/pages/Dashboard.tsx
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
 import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource } from '../utils/ai'
@@ -319,7 +319,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
   const [modal, setModal] = useState<ModalType>(null)
 
   const bazi = getBaZi(user.birthYear, user.birthMonth, user.birthDay, user.birthHour)
-  const wuxingDist = useMemo(() => calcWuxingDist(bazi), [])
+  const wuxingDist = calcWuxingDist(bazi)
   const dayMasterWx = GAN_WUXING[bazi.dayGan] || ''
   const dayMasterYY = GAN_YIN_YANG[bazi.dayGan] || ''
   const zodiac = lang === 'zh' ? ZHI_ZODIAC[bazi.yearZhi] : ZHI_ZODIAC_EN[bazi.yearZhi]
