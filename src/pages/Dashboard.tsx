@@ -433,7 +433,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             <div className="profile-dates-compact">
               <div className="date-row-sm">
                 <span className="date-label-sm">{t.birthInfo}</span>
-                <span className="date-val-sm">{user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00</span>
+                <span className="date-val-sm">{user.birthYear}/{user.birthMonth}/{user.birthDay} {user.birthHour}:00 · {user.birthPlace}</span>
               </div>
               {user.lunarDate && (
                 <div className="date-row-sm">
@@ -441,10 +441,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                   <span className="date-val-sm">{user.lunarDate}</span>
                 </div>
               )}
-              <div className="date-row-sm">
-                <span className="date-label-sm">{t.place}</span>
-                <span className="date-val-sm">{user.birthPlace}</span>
-              </div>
             </div>
           </div>
 
@@ -490,22 +486,17 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             </div>
           </div>
 
-          {/* 命主信息：横排两列 */}
+          {/* 命主信息：日主+纳音一行 */}
           <div className="sidebar-section sidebar-section-last">
-            <div className="sidebar-section-title">{lang === 'zh' ? '命主信息' : 'Chart Info'}</div>
-            <div className="chart-info-grid">
-              <div className="chart-info-item">
+            <div className="chart-info-row-single">
+              <div className="chart-info-inline">
                 <span className="chart-info-label">{t.dayMaster}</span>
                 <span className="chart-info-value" style={{ color: WUXING_COLORS[dayMasterWx] }}>
                   {bazi.dayGan}{dayMasterWx && `（${dayMasterYY}${dayMasterWx}）`}
                 </span>
               </div>
-              <div className="chart-info-item">
-                <span className="chart-info-label">{t.zodiac}</span>
-                <span className="chart-info-value">{zodiac}</span>
-              </div>
               {nayin && (
-                <div className="chart-info-item chart-info-full">
+                <div className="chart-info-inline">
                   <span className="chart-info-label">{t.nayin}</span>
                   <span className="chart-info-value">{nayin}</span>
                 </div>

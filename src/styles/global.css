@@ -470,13 +470,13 @@ input, textarea, select { font-family: var(--font-zh); }
 }
 .avatar-glyph-sm { font-size: 1.05rem; color: var(--bronze); }
 .profile-info-col { display: flex; flex-direction: column; gap: 0.1rem; }
-.profile-name   { font-size: 0.95rem; font-weight: 500; letter-spacing: 0.15em; color: var(--ink); }
-.profile-gender { font-size: 0.72rem; color: var(--text-secondary); }
+.profile-name   { font-size: 0.95rem; font-weight: 600; letter-spacing: 0.15em; color: #1a1612; }
+.profile-gender { font-size: 0.72rem; color: #4a3f35; }
 
 .profile-dates-compact { display: flex; flex-direction: column; gap: 0.18rem; }
 .date-row-sm   { display: flex; gap: 0.35rem; align-items: baseline; }
-.date-label-sm { font-size: 0.68rem; color: var(--text-muted); flex-shrink: 0; letter-spacing: 0.05em; white-space: nowrap; }
-.date-val-sm   { font-size: 0.72rem; color: #3a3228; }
+.date-label-sm { font-size: 0.68rem; color: #6a5f55; flex-shrink: 0; letter-spacing: 0.05em; white-space: nowrap; }
+.date-val-sm   { font-size: 0.72rem; color: #2a201a; font-weight: 500; }
 
 /* 侧栏通用区块 */
 .sidebar-section {
@@ -509,9 +509,9 @@ input, textarea, select { font-family: var(--font-zh); }
 .bazi-pillar-v2.day-pillar {
   background: rgba(155,125,58,0.09); border-radius: var(--radius-sm);
 }
-.pillar-lbl    { font-size: 0.6rem; color: #7a6f62; letter-spacing: 0.08em; margin-bottom: 0.05rem; }
-.pillar-gan-v2 { font-size: 1.15rem; font-weight: 600; line-height: 1.15; }
-.pillar-zhi-v2 { font-size: 1.15rem; font-weight: 400; line-height: 1.15; }
+.pillar-lbl    { font-size: 0.6rem; color: #5a4f42; letter-spacing: 0.08em; margin-bottom: 0.05rem; }
+.pillar-gan-v2 { font-size: 1.15rem; font-weight: 700; line-height: 1.15; }
+.pillar-zhi-v2 { font-size: 1.15rem; font-weight: 500; line-height: 1.15; }
 .day-pillar-label {
   font-size: 0.5rem; color: var(--bronze); letter-spacing: 0.06em;
   margin-top: 0.1rem; opacity: 0.9;
@@ -539,7 +539,7 @@ input, textarea, select { font-family: var(--font-zh); }
   min-width: 2px;
 }
 .wuxing-bar-count {
-  font-size: 0.7rem; color: #5a4f42; font-weight: 500;
+  font-size: 0.72rem; color: #2a201a; font-weight: 600;
   width: 22px; text-align: right; flex-shrink: 0;
 }
 
@@ -553,8 +553,8 @@ input, textarea, select { font-family: var(--font-zh); }
   border-radius: var(--radius-sm); padding: 0.38rem 0.55rem;
 }
 .chart-info-full { grid-column: 1 / -1; }
-.chart-info-label { font-size: 0.6rem; color: #7a6f62; letter-spacing: 0.1em; }
-.chart-info-value { font-size: 0.85rem; color: #2a2420; font-weight: 500; letter-spacing: 0.05em; }
+.chart-info-label { font-size: 0.6rem; color: #5a4f42; letter-spacing: 0.1em; }
+.chart-info-value { font-size: 0.85rem; color: #1a1612; font-weight: 600; letter-spacing: 0.05em; }
 
 /* ── 右侧主内容 ── */
 .dash-main {
@@ -901,4 +901,15 @@ input, textarea, select { font-family: var(--font-zh); }
 }
 .dayun-item.dayun-current .dayun-age {
   color: var(--bronze); opacity: 0.8;
+}
+
+/* 命主信息：日主+纳音横排 */
+.chart-info-row-single {
+  display: flex; gap: 0.5rem; flex-wrap: wrap;
+}
+.chart-info-inline {
+  display: flex; flex-direction: column; gap: 0.1rem;
+  background: rgba(26,22,18,0.04); border: 1px solid rgba(155,125,58,0.22);
+  border-radius: var(--radius-sm); padding: 0.38rem 0.6rem;
+  flex: 1; min-width: 80px;
 }
