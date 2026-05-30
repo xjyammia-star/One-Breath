@@ -1,8 +1,8 @@
 // src/pages/Dashboard.tsx
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
-import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource } from '../utils/ai'
+import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource, PartnerProfile } from '../utils/ai'
 import { getBaZi, getDaYun } from '../utils/bazi'
 import OracleLoader from '../components/OracleLoader'
 
@@ -22,10 +22,10 @@ interface ExtendedResult extends AnalysisResult {
   sources?: Array<{ title: string; excerpt: string }>
 }
 
-const MODULE_FEATURES: Record<Module, { basic: FeatureKey; deep: FeatureKey }> = {
-  self:   { basic: 'self_basic',   deep: 'self_deep'    },
-  people: { basic: 'people_basic', deep: 'people_deep'  },
-  world:  { basic: 'world_year',   deep: 'world_timing' },
+const MODULE_FEATURES: Record<Module, { basic: FeatureKey; deep: FeatureKey; extra?: FeatureKey }> = {
+  self:   { basic: 'self_basic',   deep: 'self_deep'                        },
+  people: { basic: 'people_basic', deep: 'people_deep'                      },
+  world:  { basic: 'world_year',   deep: 'world_timing', extra: 'world_fengshui' },
 }
 
 const MODULE_IDS: Module[] = ['self', 'people', 'world']
@@ -236,13 +236,13 @@ const text = {
     modules: [
       { id: 'self' as Module,   icon: '☲', name: '与己',   sub: '自身命盘·五行·格局',  locked: false },
       { id: 'people' as Module, icon: '☯', name: '与人',   sub: '关系·合婚·人际',       locked: true  },
-      { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·世界能量',   locked: true  },
+      { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·风水·世界能量', locked: true  },
     ],
-    depthTabs: { basic: '基础', deep: '深度' },
+    depthTabs: { basic: '基础', deep: '深度', extra: '风水' },
     depthDesc: {
       self:   { basic: '五行概况·性格·今年运势', deep: '十神格局·用神·大运流年·深度解析' },
       people: { basic: '五行相合·关系优劣', deep: '日柱配对·婚姻宫·合冲·走势预判' },
-      world:  { basic: '流年五行·今年影响', deep: '择吉时机·方位·行业·避忌' },
+      world:  { basic: '流年五行·今年影响', deep: '择吉时机·方位·行业·避忌', extra: '居家风水·方位·颜色·物品' },
     },
     birthInfo: '生辰', lunarLabel: '农历', bazi: '四柱八字',
     askPlaceholder: '在此输入您的问题，天地之气为您指引……',
@@ -254,8 +254,13 @@ const text = {
       people_deep:  ['帮我做详细合婚分析', '我们的日柱配对如何？', '这段关系未来走势如何？'],
       world_year:   ['当前世界能量场是什么状态？', '今年的年运有何提示？', '哪个方向有利于我的发展？'],
       world_timing: ['今年哪个月最适合重大决策？', '我适合往哪个方向发展？', '今年有哪些时间需要避忌？'],
+      world_fengshui: ['我家哪个方位最适合我？', '我适合什么颜色的家居？', '我的财位在哪个方向？'],
     },
     reset: '重置命盘', langSwitch: 'EN', back: '← 主页',
+    partnerTitle: '对方生辰', partnerName: '对方姓名', partnerNamePh: '可选',
+    partnerGender: '性别', partnerDate: '出生日期', partnerHour: '出生时辰',
+    partnerClear: '清除对方信息', partnerSet: '设置对方生辰',
+    partnerHint: '填写对方生辰后，AI 将进行双人合盘分析',
     login: '登录', logout: '退出', admin: '管理后台',
     genderMap: { male: '男', female: '女', other: '其他' },
     loginRequired: '此功能需要登录',
@@ -277,13 +282,13 @@ const text = {
     modules: [
       { id: 'self' as Module,   icon: '☲', name: 'The Self',  sub: 'Birth chart · Elements · Pattern', locked: false },
       { id: 'people' as Module, icon: '☯', name: 'Relations', sub: 'Compatibility · Bonds · People',   locked: true  },
-      { id: 'world' as Module,  icon: '☰', name: 'The World', sub: 'Timing · Annual cycle · Energy',   locked: true  },
+      { id: 'world' as Module,  icon: '☰', name: 'The World', sub: 'Timing · Annual cycle · Feng Shui', locked: true  },
     ],
-    depthTabs: { basic: 'Basic', deep: 'Deep' },
+    depthTabs: { basic: 'Basic', deep: 'Deep', extra: 'Feng Shui' },
     depthDesc: {
       self:   { basic: 'Elements · Character · This Year', deep: 'Ten Gods · Useful God · Da Yun · Full Analysis' },
       people: { basic: 'Elemental Fit · Relationship', deep: 'Day Pillar · Marriage Palace · Cycles' },
-      world:  { basic: 'Annual Elements · Year Impact', deep: 'Timing · Directions · Industries · Cautions' },
+      world:  { basic: 'Annual Elements · Year Impact', deep: 'Timing · Directions · Industries · Cautions', extra: 'Home Feng Shui · Directions · Colors · Objects' },
     },
     birthInfo: 'Birth', lunarLabel: 'Lunar', bazi: 'Four Pillars',
     askPlaceholder: 'Ask the oracle anything — heaven and earth shall answer…',
@@ -295,8 +300,13 @@ const text = {
       people_deep:  ['Give me a full compatibility reading', 'How do our Day Pillars pair?', "What's the trajectory of this relationship?"],
       world_year:   ['What is the current world energy?', 'What guidance does this year offer?', 'Which direction favors my growth?'],
       world_timing: ['Which month is best for major decisions?', 'Which direction should I focus on?', 'What periods should I avoid?'],
+      world_fengshui: ['Which direction is best for my home?', 'What colors suit my energy?', 'Where is my wealth corner?'],
     },
     reset: 'Reset Chart', langSwitch: '中文', back: '← Home',
+    partnerTitle: "Partner's Chart", partnerName: 'Name', partnerNamePh: 'optional',
+    partnerGender: 'Gender', partnerDate: 'Birth Date', partnerHour: 'Birth Hour',
+    partnerClear: 'Clear partner', partnerSet: "Set partner's birth info",
+    partnerHint: "Add your partner's birth info for a compatibility reading",
     login: 'Login', logout: 'Logout', admin: 'Admin',
     genderMap: { male: 'Male', female: 'Female', other: 'Other' },
     loginRequired: 'Login Required',
@@ -316,7 +326,7 @@ const text = {
 }
 
 type ModalType = 'login_required' | 'limit_reached' | 'paid_required' | null
-type DepthMode = 'basic' | 'deep'
+type DepthMode = 'basic' | 'deep' | 'extra'
 
 function SourceModal({ source, lang, onClose }: { source: CorpusSource; lang: 'zh'|'en'; onClose: () => void }) {
   return (
@@ -431,6 +441,15 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<ExtendedResult[]>([])
   const [modal, setModal] = useState<ModalType>(null)
+  // 合盘：对方信息
+  const [partner, setPartner] = useState<PartnerProfile | null>(null)
+  const [showPartnerForm, setShowPartnerForm] = useState(false)
+  const [pName, setPName] = useState('')
+  const [pGender, setPGender] = useState<'male'|'female'|'other'>('female')
+  const [pYear, setPYear] = useState(1990)
+  const [pMonth, setPMonth] = useState(6)
+  const [pDay, setPDay] = useState(15)
+  const [pHour, setPHour] = useState(12)
 
   const bazi = getBaZi(user.birthYear, user.birthMonth, user.birthDay, user.birthHour)
   const wuxingDist = calcWuxingDist(bazi)
@@ -443,9 +462,11 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
   const nayin = NAYIN[bazi.yearGan + bazi.yearZhi] || ''
 
   const currentMod = t.modules.find(m => m.id === activeModule)!
-  const featureKey: FeatureKey = MODULE_FEATURES[activeModule][depthMode]
+  const featureKey: FeatureKey = depthMode === 'extra'
+    ? (MODULE_FEATURES[activeModule].extra || MODULE_FEATURES[activeModule].deep)
+    : MODULE_FEATURES[activeModule][depthMode as 'basic'|'deep']
   const quickQ = (t.quickQ as any)[featureKey] || []
-  const currentDesc = (t.depthDesc as any)[activeModule][depthMode]
+  const currentDesc = (t.depthDesc as any)[activeModule][depthMode] || ''
   const hasPaid = authUser && PAID_PLANS.includes(authUser.plan)
 
   const handleModuleSwitch = (modId: Module) => {
@@ -453,7 +474,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
     setActiveModule(modId); setDepthMode('basic')
   }
   const handleDepthSwitch = (mode: DepthMode) => {
-    if (mode === 'deep') {
+    if (mode === 'deep' || mode === 'extra') {
       if (!authUser) { setModal('login_required'); return }
       if (!hasPaid)  { setModal('paid_required');  return }
     }
@@ -466,7 +487,10 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
     if (depthMode === 'deep' && !hasPaid) { setModal('paid_required'); return }
     setLoading(true); setQuery('')
     try {
-      const parsed: ParsedResponse = await analyzeWithDeepSeek({ user, bazi, module: activeModule, featureKey, question, lang })
+      const parsed: ParsedResponse = await analyzeWithDeepSeek({
+        user, bazi, module: activeModule, featureKey, question, lang,
+        partner: (activeModule === 'people' && partner) ? partner : undefined,
+      })
       setResults(prev => [{
         module: activeModule, query: question,
         response: parsed.conclusion, reasoning: parsed.reasoning,
@@ -654,11 +678,70 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               <button className={`depth-tab${depthMode === 'deep' ? ' active' : ''}${!hasPaid ? ' depth-tab-locked' : ''}`} onClick={() => handleDepthSwitch('deep')}>
                 {t.depthTabs.deep}{!hasPaid && <span className="depth-lock-icon">🔒</span>}
               </button>
+              {activeModule === 'world' && MODULE_FEATURES.world.extra && (
+                <button className={`depth-tab${depthMode === 'extra' ? ' active' : ''}${!hasPaid ? ' depth-tab-locked' : ''}`} onClick={() => handleDepthSwitch('extra' as any)}>
+                  {t.depthTabs.extra}{!hasPaid && <span className="depth-lock-icon">🔒</span>}
+                </button>
+              )}
             </div>
           </div>
 
           {/* ── 今日卦象 ── */}
           <TodayOracle bazi={bazi} wuxingDist={wuxingDist} lang={lang} />
+
+          {/* ── 合盘：对方信息（与人模块显示）── */}
+          {activeModule === 'people' && (
+            <div className="partner-area">
+              {partner ? (
+                <div className="partner-set">
+                  <span className="partner-set-icon">☯</span>
+                  <span className="partner-set-name">{partner.name || (lang === 'zh' ? '对方' : 'Partner')}</span>
+                  <span className="partner-set-info">
+                    {partner.birthYear}/{partner.birthMonth}/{partner.birthDay}
+                  </span>
+                  <button className="partner-clear-btn" onClick={() => { setPartner(null); setShowPartnerForm(false) }}>
+                    {t.partnerClear}
+                  </button>
+                </div>
+              ) : (
+                <button className="partner-add-btn" onClick={() => setShowPartnerForm(v => !v)}>
+                  {showPartnerForm ? '▲' : '+'} {t.partnerSet}
+                </button>
+              )}
+              {showPartnerForm && !partner && (
+                <div className="partner-form">
+                  <div className="partner-form-row">
+                    <input className="partner-input" placeholder={t.partnerNamePh}
+                      value={pName} onChange={e => setPName(e.target.value)} maxLength={20} />
+                    <select className="partner-select" value={pGender} onChange={e => setPGender(e.target.value as any)}>
+                      <option value="female">{lang === 'zh' ? '女' : 'Female'}</option>
+                      <option value="male">{lang === 'zh' ? '男' : 'Male'}</option>
+                      <option value="other">{lang === 'zh' ? '其他' : 'Other'}</option>
+                    </select>
+                  </div>
+                  <div className="partner-form-row">
+                    <input className="partner-input partner-input-sm" type="number" min={1900} max={2010}
+                      value={pYear} onChange={e => setPYear(Number(e.target.value))} />
+                    <span className="partner-sep">/</span>
+                    <input className="partner-input partner-input-xs" type="number" min={1} max={12}
+                      value={pMonth} onChange={e => setPMonth(Number(e.target.value))} />
+                    <span className="partner-sep">/</span>
+                    <input className="partner-input partner-input-xs" type="number" min={1} max={31}
+                      value={pDay} onChange={e => setPDay(Number(e.target.value))} />
+                    <input className="partner-input partner-input-xs" type="number" min={0} max={23}
+                      value={pHour} onChange={e => setPHour(Number(e.target.value))} placeholder="时" />
+                  </div>
+                  <button className="partner-confirm-btn" onClick={() => {
+                    setPartner({ name: pName, gender: pGender, birthYear: pYear, birthMonth: pMonth, birthDay: pDay, birthHour: pHour })
+                    setShowPartnerForm(false)
+                  }}>
+                    {lang === 'zh' ? '确认' : 'Confirm'}
+                  </button>
+                  <p className="partner-hint">{t.partnerHint}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="module-subtitle-bar">
             <span className="module-subtitle-icon">{currentMod.icon}</span>

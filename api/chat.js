@@ -5,7 +5,7 @@ const { getSession, checkFeatureAccess, logUsage } = require('./_lib/auth')
 const VALID_FEATURE_KEYS = [
   'self_basic', 'self_deep',
   'people_basic', 'people_deep',
-  'world_year', 'world_timing',
+  'world_year', 'world_timing', 'world_fengshui',
 ]
 
 const FREE_FEATURES = ['self_basic']

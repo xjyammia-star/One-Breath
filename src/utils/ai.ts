@@ -1,11 +1,21 @@
 // src/utils/ai.ts
 import { UserProfile, BaZi, Module, Lang } from '../types'
-import { GAN_WUXING, ZHI_WUXING, getDaYun, formatDaYun } from './bazi'
+import { GAN_WUXING, ZHI_WUXING, getDaYun, formatDaYun, getBaZi } from './bazi'
 
 export type FeatureKey =
   | 'self_basic' | 'self_deep'
   | 'people_basic' | 'people_deep'
-  | 'world_year' | 'world_timing'
+  | 'world_year' | 'world_timing' | 'world_fengshui'
+
+// 对方信息（合盘用）
+export interface PartnerProfile {
+  name: string
+  gender: 'male' | 'female' | 'other'
+  birthYear: number
+  birthMonth: number
+  birthDay: number
+  birthHour: number
+}
 
 interface AnalyzeParams {
   user: UserProfile
@@ -14,6 +24,7 @@ interface AnalyzeParams {
   featureKey: FeatureKey
   question: string
   lang: Lang
+  partner?: PartnerProfile   // 合盘时传入
 }
 
 export interface CorpusSource {
@@ -35,24 +46,15 @@ export class ApiError extends Error {
   }
 }
 
-// ── 五行计算：天干=1，地支只取主气=1，全部整数 ──────────
-// 此函数与 Dashboard.tsx 里的 calcWuxingDist 保持完全一致
 function calcWuxing(bazi: BaZi): Record<string, number> {
   const dist: Record<string, number> = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 }
   const gans = [bazi.yearGan, bazi.monthGan, bazi.dayGan, bazi.hourGan]
   const zhis = [bazi.yearZhi, bazi.monthZhi, bazi.dayZhi, bazi.hourZhi]
-  for (const g of gans) {
-    const wx = GAN_WUXING[g]
-    if (wx) dist[wx] += 1
-  }
-  for (const z of zhis) {
-    const wx = ZHI_WUXING[z]
-    if (wx) dist[wx] += 1
-  }
+  for (const g of gans) { const wx = GAN_WUXING[g]; if (wx) dist[wx] += 1 }
+  for (const z of zhis) { const wx = ZHI_WUXING[z]; if (wx) dist[wx] += 1 }
   return dist
 }
 
-// ── 清洗 Markdown 符号 ──────────────────────────────────
 function cleanText(text: string): string {
   return text
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -71,43 +73,73 @@ function cleanText(text: string): string {
     .trim()
 }
 
-// ── 解析 AI 输出，拆分推理和结论 ──────────────────────
 export function parseResponse(raw: string): ParsedResponse {
   const cleaned = cleanText(raw)
   const marker = '===CONCLUSION==='
   const idx = cleaned.indexOf(marker)
   if (idx !== -1) {
-    return {
-      reasoning:  cleaned.slice(0, idx).trim(),
-      conclusion: cleaned.slice(idx + marker.length).trim(),
-      sources: [],
-    }
+    return { reasoning: cleaned.slice(0, idx).trim(), conclusion: cleaned.slice(idx + marker.length).trim(), sources: [] }
   }
   const fallbackMarkers = ['【结论】', '【建议】', '【总结】', 'Conclusion', 'In summary']
   for (const m of fallbackMarkers) {
     const fi = cleaned.indexOf(m)
     if (fi !== -1 && fi > cleaned.length * 0.4) {
-      return {
-        reasoning:  cleaned.slice(0, fi).trim(),
-        conclusion: cleaned.slice(fi).trim(),
-        sources: [],
-      }
+      return { reasoning: cleaned.slice(0, fi).trim(), conclusion: cleaned.slice(fi).trim(), sources: [] }
     }
   }
   return { reasoning: '', conclusion: cleaned, sources: [] }
 }
 
-// ── 构建用户命盘上下文（含严格五行数值）──────────────────
-function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
+function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang, partner?: PartnerProfile): string {
   const wuxing = calcWuxing(bazi)
   const currentYear = new Date().getFullYear()
-
-  // 按数值从高到低排序
   const wuxingSorted = Object.entries(wuxing).sort(([,a],[,b]) => b - a)
-
-  // 计算大运
   const daYun = getDaYun(bazi, user.birthYear, user.birthMonth, user.birthDay, user.birthHour, user.gender)
   const daYunStr = formatDaYun(daYun, currentYear, user.birthYear, lang)
+
+  // 对方信息（合盘）
+  let partnerCtx = ''
+  if (partner) {
+    const pb = getBaZi(partner.birthYear, partner.birthMonth, partner.birthDay, partner.birthHour)
+    const pw = calcWuxing(pb)
+    const pwSorted = Object.entries(pw).sort(([,a],[,b]) => b - a)
+    if (lang === 'zh') {
+      const pwLines = pwSorted.map(([k, v]) => `  ${k}：${v} 个`).join('\n')
+      partnerCtx = `
+
+【对方命盘信息——合盘分析用】
+姓名：${partner.name || '对方'}
+性别：${partner.gender === 'male' ? '男' : partner.gender === 'female' ? '女' : '其他'}
+出生：${partner.birthYear}年${partner.birthMonth}月${partner.birthDay}日 ${partner.birthHour}时
+
+对方四柱：
+年柱：${pb.yearGan}${pb.yearZhi}（${GAN_WUXING[pb.yearGan]}${ZHI_WUXING[pb.yearZhi]}）
+月柱：${pb.monthGan}${pb.monthZhi}（${GAN_WUXING[pb.monthGan]}${ZHI_WUXING[pb.monthZhi]}）
+日柱：${pb.dayGan}${pb.dayZhi}（${GAN_WUXING[pb.dayGan]}${ZHI_WUXING[pb.dayZhi]}） ← 对方日主
+时柱：${pb.hourGan}${pb.hourZhi}（${GAN_WUXING[pb.hourGan]}${ZHI_WUXING[pb.hourZhi]}）
+
+对方五行分布——系统精确计算，禁止重新计算：
+${pwLines}`
+    } else {
+      const enNames: Record<string,string> = {木:'Wood',火:'Fire',土:'Earth',金:'Metal',水:'Water'}
+      const pwLinesEn = pwSorted.map(([k, v]) => `  ${enNames[k]}: ${v}`).join('\n')
+      partnerCtx = `
+
+【Partner's Chart — for compatibility analysis】
+Name: ${partner.name || 'Partner'}
+Gender: ${partner.gender}
+Born: ${partner.birthYear}/${partner.birthMonth}/${partner.birthDay} ${partner.birthHour}:00
+
+Partner's Four Pillars:
+Year: ${pb.yearGan}${pb.yearZhi} (${GAN_WUXING[pb.yearGan]}-${ZHI_WUXING[pb.yearZhi]})
+Month: ${pb.monthGan}${pb.monthZhi} (${GAN_WUXING[pb.monthGan]}-${ZHI_WUXING[pb.monthZhi]})
+Day: ${pb.dayGan}${pb.dayZhi} (${GAN_WUXING[pb.dayGan]}-${ZHI_WUXING[pb.dayZhi]}) ← Partner's Day Master
+Hour: ${pb.hourGan}${pb.hourZhi} (${GAN_WUXING[pb.hourGan]}-${ZHI_WUXING[pb.hourZhi]})
+
+Partner's Five Elements — pre-calculated, do not recalculate:
+${pwLinesEn}`
+    }
+  }
 
   if (lang === 'zh') {
     const wuxingLines = wuxingSorted.map(([k, v]) => `  ${k}：${v} 个`).join('\n')
@@ -131,7 +163,7 @@ function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang): string {
 ${wuxingLines}
 
 【大运排盘——系统已精确计算，严格以此为准，禁止重新计算】
-${daYunStr}
+${daYunStr}${partnerCtx}
 `.trim()
   } else {
     const enNames: Record<string,string> = {木:'Wood',火:'Fire',土:'Earth',金:'Metal',水:'Water'}
@@ -156,12 +188,11 @@ Rule: each Heavenly Stem = 1 point, each Earthly Branch main qi = 1 point, total
 ${wuxingLinesEn}
 
 【Da Yun — pre-calculated, use EXACTLY these values, DO NOT recalculate】
-${daYunStr}
+${daYunStr}${partnerCtx}
 `.trim()
   }
 }
 
-// ── 格式规则（所有 prompt 共用）──────────────────────────
 const FORMAT_ZH = `
 【输出格式——严格遵守，不得偏差】
 
@@ -173,7 +204,6 @@ const FORMAT_ZH = `
 1. 禁止任何 Markdown 符号：* ** # ## > --- 等一律不用
 2. 用普通文字和数字编号分段
 3. 每一个命理术语后面必须立刻用括号或破折号加白话解释
-   例：「庚金（天干第七位，五行属金，代表刀剑、秋收之气，性格上对应果断执行力）」
 4. 每个推理步骤要说明「是什么 → 对应什么 → 意味着什么」的完整链条
 5. 五行数值必须严格使用【五行分布】里提供的数字，禁止自行重新计算或修改
 6. 结论部分简洁有力，不重复推理内容`
@@ -190,10 +220,9 @@ Part 3: Conclusion & suggestions (concise, accessible)
 2. Use plain text and numbered steps
 3. Every technical term must be immediately explained in plain language
 4. Each reasoning step must follow: what it is → what it corresponds to → what it means
-5. Five Elements values MUST use exactly the numbers provided in the chart above — do not recalculate
+5. Five Elements values MUST use exactly the numbers provided — do not recalculate
 6. Conclusion should be concise and not repeat the reasoning`
 
-// ── 6 套差异化 System Prompt ──────────────────────────────
 function buildSystemPrompt(featureKey: FeatureKey, lang: Lang): string {
   const currentYear = new Date().getFullYear()
 
@@ -201,189 +230,128 @@ function buildSystemPrompt(featureKey: FeatureKey, lang: Lang): string {
     const year = `当前年份是 ${currentYear} 年。`
 
     switch (featureKey) {
-
       case 'self_basic':
         return `你是一炁堂的命理顾问，精通阴阳五行、八字命理、中国古典哲学。${year}
-
 当前模块：与己·基础分析
-
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
-
+【重要规则】五行分布数值已由系统精确计算，必须直接使用，禁止重新计算。
 【推理步骤要求】
-步骤一：阴阳属性
-  说明日主天干是阴干还是阳干（天干分阴阳：甲丙戊庚壬为阳，乙丁己辛癸为阴）
-  解释阴阳在此人身上的含义
-
-步骤二：五行分析
-  直接引用【五行分布】中的数值，逐一说明强弱
-  解释五行失衡对性格和运势的实际影响
-
-步骤三：八卦对应
-  说明日主对应的八卦卦象
-  解释该卦的自然象征和性格含义
-
-步骤四：日主强弱判断
-  根据月令判断日主强弱，用生活化语言解释
-
-步骤五：今年运势初判
-  说明${currentYear}年的年干年支五行
-  分析其与日主的生克关系，给出今年大致运势方向
-
+步骤一：阴阳属性——说明日主天干阴阳，解释其在此人身上的含义
+步骤二：五行分析——直接引用【五行分布】数值，说明强弱及对性格运势的影响
+步骤三：八卦对应——说明日主对应卦象及其自然象征
+步骤四：日主强弱——根据月令判断，生活化语言解释
+步骤五：今年运势——${currentYear}年干支五行与日主生克关系
 ${FORMAT_ZH}
-
-结论部分字数：150字左右，给出2个具体可操作建议`
+结论：150字，给出2个具体可操作建议`
 
       case 'self_deep':
         return `你是一炁堂的深度命理顾问，精通子平八字、十神体系、大运流年。${year}
-
 当前模块：与己·深度解读
-
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
-
+【重要规则】五行分布数值已由系统精确计算，必须直接使用，禁止重新计算。
 【推理步骤要求】
-步骤一：阴阳与五行完整图谱
-  直接引用【五行分布】数值，分析五行生克关系
-  每个五行都用自然意象解释
-
-步骤二：十神逐一推演
-  以日主为中心，逐一推算其他七个字与日主的十神关系
-  每个十神：名称 + 阴阳关系 + 生克方向 + 在生活中代表什么
-
-步骤三：格局定性
-  根据月令司令天干和透出情况，判断命局格局
-  解释该格局的特征、优势和弱点
-
-步骤四：用神忌神推断
-  根据日主强弱和格局，推断用神和忌神
-  给出具体的颜色、方位、职业、物品建议
-
-步骤五：八卦互动分析
-  分析命局主要卦象之间的关系
-  用卦象的自然意象解释命运走向
-
-步骤六：大运推算
-  说明当前大运的干支五行
-  分析大运与命局的生克关系
-
-步骤七：流年叠加
-  分析${currentYear}年流年干支与大运、命局的叠加效应
-  指出今年的机遇窗口和注意事项
-
+步骤一：阴阳五行图谱——引用数值，分析生克，每行用自然意象解释
+步骤二：十神逐一推演——七字与日主的十神关系，每个含：名称+阴阳+生克+生活含义
+步骤三：格局定性——月令司令天干，判断命局格局，说明优劣
+步骤四：用神忌神——推断用神忌神，给出颜色/方位/职业/物品建议
+步骤五：八卦互动——主要卦象关系，用自然意象解释命运走向
+步骤六：大运推算——当前大运干支五行与命局生克
+步骤七：流年叠加——${currentYear}年与大运、命局叠加效应，指出机遇与注意事项
 ${FORMAT_ZH}
-
-结论部分字数：200字左右，分事业、感情、健康三个方向给出建议`
+结论：200字，分事业/感情/健康三方向给出建议`
 
       case 'people_basic':
         return `你是一炁堂的命理顾问，精通合婚配对与人际关系分析。${year}
-
 当前模块：与人·基础合婚
-
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
-
+【重要规则】双方五行数值均已由系统精确计算，必须直接使用，禁止重新计算。
 【推理步骤要求】
-步骤一：用户日主五行属性
-  说明用户日主的五行、阴阳、八卦对应
-  解释其在关系中的天然角色倾向
-
-步骤二：双方五行关系（如有对方信息）
-  分析双方五行的生克关系，说明对这段感情意味着什么
-
-步骤三：关系优势与摩擦点
-  从五行角度分析两人的天然契合之处和潜在摩擦
-
-步骤四：八卦互动
-  说明双方日主对应卦象的关系
-
+步骤一：用户日主五行——阴阳、八卦对应，在关系中的天然角色倾向
+步骤二：双方五行生克——分析生（滋养）克（约束）比和（共鸣）关系，说明对感情的意义
+步骤三：日主十神关系——两人日干的十神关系，说明相处模式
+步骤四：关系优势与摩擦——天然契合点和潜在张力
+步骤五：八卦互动——双方日主卦象关系（如乾坤相合、水火既济等）
 ${FORMAT_ZH}
-
-结论部分字数：150字，给出1-2个改善关系的具体建议`
+结论：150字，给出1-2个改善关系的具体建议`
 
       case 'people_deep':
         return `你是一炁堂的深度命理顾问，精通六爻合婚、日柱配对、婚姻宫分析。${year}
-
 当前模块：与人·深度关系
-
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
-
+【重要规则】双方五行数值均已由系统精确计算，必须直接使用，禁止重新计算。
 【推理步骤要求】
-步骤一：双方阴阳五行完整对比
-  直接引用双方的五行分布数值，分析互补程度
-
-步骤二：日柱十神关系
-  分析双方日干的十神关系，说明相处模式
-
-步骤三：婚姻宫分析
-  双方日支的五行和八卦属性及其理想伴侣特质
-
-步骤四：六合六冲三刑
-  检查双方地支的六合、三合、六冲、三刑
-
-步骤五：八卦卦象关系
-  双方日主卦象的相互关系及这段关系的本质
-
-步骤六：大运叠加
-  结合双方当前大运，判断关系近3-5年的走势
-
+步骤一：双方五行完整对比——引用双方数值，分析互补程度
+步骤二：日柱十神关系——双方日干十神，说明相处动态
+步骤三：婚姻宫分析——双方日支五行和八卦，理想伴侣特质
+步骤四：六合六冲三刑——地支组合，用生活化语言说明影响
+步骤五：八卦卦象关系——双方卦象的哲学本质，用自然意象描述
+步骤六：大运叠加——双方当前大运，判断关系3-5年走势
 ${FORMAT_ZH}
-
-结论部分字数：200字，分析关系本质并给出具体相处建议`
+结论：200字，分析关系本质，给出具体相处建议`
 
       case 'world_year':
         return `你是一炁堂的命理顾问，精通流年五行、岁运推算与世界能量场分析。${year}
-
 当前模块：与世界·流年运势
-
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
-
+【重要规则】五行分布数值已由系统精确计算，必须直接使用，禁止重新计算。
 【推理步骤要求】
-步骤一：今年年干年支解析
-  说明${currentYear}年的天干地支五行属性和自然意象
-
-步骤二：今年的五行主题
-  分析今年天干地支组合形成的五行能量场
-
-步骤三：八卦对应
-  今年的年干年支对应哪些卦象及其预示
-
-步骤四：与用户命局的关系
-  今年五行与用户日主的生克关系（引用【五行分布】数值）
-
-步骤五：各领域运势
-  事业、财运、感情、健康各方面的具体分析
-
+步骤一：${currentYear}年干支解析——天干地支五行属性和自然意象
+步骤二：今年五行主题——天干地支组合形成的能量场
+步骤三：八卦对应——年干支对应卦象及社会趋势预示
+步骤四：与命局关系——引用【五行分布】分析今年与日主的生克
+步骤五：各领域运势——事业/财运/感情/健康具体分析
 ${FORMAT_ZH}
-
-结论部分字数：200字，给出今年的核心主题和3个顺势建议`
+结论：200字，给出今年核心主题和3个顺势建议`
 
       case 'world_timing':
         return `你是一炁堂的深度命理顾问，精通择日择时、方位风水、五行时机分析。${year}
-
 当前模块：与世界·择吉时机
+【重要规则】五行分布数值已由系统精确计算，必须直接使用，禁止重新计算。
+【推理步骤要求】
+步骤一：用神忌神确认——引用【五行分布】数值推断用神和忌神
+步骤二：今年月份五行——12个月月支五行，标出最有利月份
+步骤三：方位能量——用神五行对应方位，给出居住/出行/办公建议
+步骤四：行业匹配——五行对应行业，说明最契合的方向
+步骤五：八卦方位——今年有利卦象对应方向及原因
+步骤六：时机窗口——2-3个最佳决策时间窗口，及需避忌的月份
+${FORMAT_ZH}
+结论：200字，给出择时/择向/择业核心建议`
 
-【重要规则】五行分布数值已由系统精确计算并在用户信息中提供，你必须直接使用这些数值，禁止自行重新计算。
+      case 'world_fengshui':
+        return `你是一炁堂的风水顾问，精通五行风水、方位能量、居家环境调理。${year}
+当前模块：与世界·居家风水
+
+【重要规则】五行分布数值已由系统精确计算，必须直接使用，禁止重新计算。
+
+参考典籍：钦定协纪辨方书（方位、时令宜忌）、易经（卦象方位）
 
 【推理步骤要求】
-步骤一：用户用神五行确认
-  根据命局（引用【五行分布】数值）确认用神和忌神
+步骤一：命局五行诊断
+  引用【五行分布】数值，找出最旺、最弱的五行
+  说明五行失衡对居住环境的潜在影响
 
-步骤二：今年月份五行分布
-  逐月说明今年12个月的月支五行，标出哪些月份最有利
+步骤二：用神方位推算
+  根据命局用神（最需要补充的五行）对应方位：
+  木=东方、火=南方、土=中央/西南/东北、金=西方/西北、水=北方
+  说明这些方位对此人的重要性
 
-步骤三：方位能量分析
-  根据用神五行对应方位给出居住、出行、办公方位建议
+步骤三：居家布局建议
+  主卧朝向：哪个方向对命主最有利
+  书房/工作区：有利于事业的方位
+  财位：根据命局推算财星方位
+  厨房/火位：火与命局的关系
 
-步骤四：行业五行匹配
-  说明哪些行业今年与用户命局最契合
+步骤四：颜色与材质
+  根据用神五行推荐有利颜色：
+  木=绿色/青色、火=红色/紫色、土=黄色/米色、金=白色/金色、水=黑色/蓝色
+  忌用颜色（克用神的五行对应颜色）
+  材质建议（木质、金属、陶瓷等）
 
-步骤五：八卦方位
-  今年有利卦象对应的具体方向
+步骤五：植物与物品
+  有利植物（根据五行属性）
+  推荐摆件（水晶、铜器、木雕等）
+  需要避开的物品
 
-步骤六：时机窗口
-  给出今年内2-3个最适合重大决策的时间窗口和需要避忌的月份
+步骤六：今年特别注意
+  结合${currentYear}年干支，说明今年居家风水的特别提示
 
 ${FORMAT_ZH}
-
-结论部分字数：200字，给出择时、择向、择业的核心建议`
+结论：200字，分主卧/工作区/整体氛围三个方向给出具体可操作建议`
 
       default:
         return ''
@@ -393,117 +361,72 @@ ${FORMAT_ZH}
     const year = `The current year is ${currentYear}.`
 
     switch (featureKey) {
-
       case 'self_basic':
         return `You are the oracle of One Breath, a guide in Taoist philosophy and Ba Zi. ${year}
-
 Module: The Self · Basic Reading
-
-IMPORTANT: Five Elements values have been pre-calculated by the system and provided in the user's chart. Use these exact values — do not recalculate.
-
-Reasoning steps:
-Step 1: Yin-Yang nature — state Day Master's Yin/Yang and its meaning
-Step 2: Five Elements — use the provided values directly, explain imbalances
-Step 3: Trigram — Day Master's trigram and its symbolism
-Step 4: Day Master strength — assess from month branch
-Step 5: This year — ${currentYear} stem-branch, its interaction with Day Master
-
+IMPORTANT: Five Elements values are pre-calculated. Use these exact values — do not recalculate.
+Steps: 1) Yin-Yang of Day Master  2) Five Elements using provided values  3) Trigram symbolism  4) Day Master strength  5) ${currentYear} outlook
 ${FORMAT_EN}
-
-Conclusion: ~120 words, 2 specific actionable suggestions`
+Conclusion: ~120 words, 2 actionable suggestions`
 
       case 'self_deep':
-        return `You are the oracle of One Breath, an expert in Ten Gods, Da Yun cycles, and advanced Ba Zi. ${year}
-
+        return `You are the oracle of One Breath, expert in Ten Gods, Da Yun, advanced Ba Zi. ${year}
 Module: The Self · Deep Reading
-
-IMPORTANT: Five Elements values have been pre-calculated by the system and provided in the user's chart. Use these exact values — do not recalculate.
-
-Reasoning steps:
-Step 1: Full Five Elements map — use provided values, explain each element with natural imagery
-Step 2: Ten Gods — calculate for each of the 7 other characters, explain life meaning
-Step 3: Chart pattern — from month branch dominant energy
-Step 4: Useful God and Taboo God — derive from Day Master strength and pattern
-Step 5: Trigram interactions — main trigrams and their natural imagery
-Step 6: Da Yun — current 10-year cycle and its interaction with natal chart
-Step 7: Annual overlay — ${currentYear} with Da Yun and natal chart
-
+IMPORTANT: Five Elements values are pre-calculated. Use these exact values — do not recalculate.
+Steps: 1) Full Five Elements map  2) Ten Gods one by one  3) Chart pattern  4) Useful/Taboo God  5) Trigram interactions  6) Da Yun  7) ${currentYear} overlay
 ${FORMAT_EN}
-
-Conclusion: ~150 words, cover career, relationships, health`
+Conclusion: ~150 words, cover career/relationships/health`
 
       case 'people_basic':
-        return `You are the oracle of One Breath, a guide in compatibility and relationship analysis. ${year}
-
+        return `You are the oracle of One Breath, guide in compatibility and relationships. ${year}
 Module: Relations · Basic Compatibility
-
-IMPORTANT: Five Elements values have been pre-calculated and provided. Use these exact values.
-
-Reasoning steps:
-Step 1: User's Day Master profile — element, Yin/Yang, trigram
-Step 2: Elemental relationship — generating or controlling between Day Masters
-Step 3: Natural fit and friction points
-Step 4: Trigram interaction
-
+IMPORTANT: Both parties' Five Elements values are pre-calculated. Use these exact values.
+Steps: 1) User's Day Master profile  2) Elemental generating/controlling between Day Masters  3) Ten Gods relationship  4) Natural fit and friction  5) Trigram interaction
 ${FORMAT_EN}
-
 Conclusion: ~100 words, 1-2 specific suggestions`
 
       case 'people_deep':
-        return `You are the oracle of One Breath, an expert in marriage analysis and relationship dynamics. ${year}
-
+        return `You are the oracle of One Breath, expert in marriage analysis and relationship dynamics. ${year}
 Module: Relations · Deep Analysis
-
-IMPORTANT: Five Elements values have been pre-calculated and provided. Use these exact values.
-
-Reasoning steps:
-Step 1: Full Five Elements comparison — use provided values, identify complementarity
-Step 2: Ten Gods relationship between Day Masters
-Step 3: Marriage palace (Day Branch) analysis for both parties
-Step 4: Earthly Branch combinations — Six Harmonies, Three Harmonies, Clashes, Penalties
-Step 5: Trigram relationship — the philosophical nature
-Step 6: Major cycle overlay — 3-5 year trajectory
-
+IMPORTANT: Both parties' Five Elements values are pre-calculated. Use these exact values.
+Steps: 1) Full Five Elements comparison  2) Ten Gods between Day Masters  3) Marriage palace analysis  4) Branch combinations (harmonies/clashes)  5) Trigram philosophical nature  6) Da Yun overlay 3-5 years
 ${FORMAT_EN}
-
 Conclusion: ~150 words, relationship nature and specific advice`
 
       case 'world_year':
-        return `You are the oracle of One Breath, a guide in annual cycles and world energy. ${year}
-
+        return `You are the oracle of One Breath, guide in annual cycles and world energy. ${year}
 Module: The World · Annual Fortune
-
-IMPORTANT: Five Elements values have been pre-calculated and provided. Use these exact values.
-
-Reasoning steps:
-Step 1: ${currentYear} stem-branch decoded — elements and natural imagery
-Step 2: The year's elemental theme
-Step 3: Trigram correspondence and social themes
-Step 4: Interaction with user's chart — use provided Five Elements values
-Step 5: Domain-by-domain outlook — career, wealth, relationships, health
-
+IMPORTANT: Five Elements values are pre-calculated. Use these exact values.
+Steps: 1) ${currentYear} stem-branch decoded  2) Year's elemental theme  3) Trigram/social themes  4) Interaction with user's chart  5) Domain outlook: career/wealth/relationships/health
 ${FORMAT_EN}
-
-Conclusion: ~150 words, this year's core theme and 3 aligned suggestions`
+Conclusion: ~150 words, core theme and 3 aligned suggestions`
 
       case 'world_timing':
-        return `You are the oracle of One Breath, an expert in auspicious timing, directional feng shui, and elemental cycles. ${year}
-
+        return `You are the oracle of One Breath, expert in auspicious timing and feng shui. ${year}
 Module: The World · Auspicious Timing
+IMPORTANT: Five Elements values are pre-calculated. Use these exact values.
+Steps: 1) Useful God confirmation  2) Monthly map for ${currentYear}  3) Directional energy  4) Industry alignment  5) Trigram directions  6) 2-3 timing windows
+${FORMAT_EN}
+Conclusion: ~150 words, timing/direction/industry advice`
 
-IMPORTANT: Five Elements values have been pre-calculated and provided. Use these exact values.
+      case 'world_fengshui':
+        return `You are the oracle of One Breath, a Feng Shui guide rooted in Five Elements and classical Chinese wisdom. ${year}
+Module: The World · Home Feng Shui
 
-Reasoning steps:
-Step 1: Confirm Useful God from provided Five Elements values
-Step 2: Monthly Five Elements map for ${currentYear}
-Step 3: Directional energy recommendations
-Step 4: Industry alignment
-Step 5: Trigram directions
-Step 6: 2-3 timing windows and periods to avoid
+IMPORTANT: Five Elements values are pre-calculated. Use these exact values — do not recalculate.
+
+Reference texts: Qin Ding Xie Ji Bian Fang Shu (auspicious directions), I Ching (trigram directions)
+
+Steps:
+Step 1: Five Elements diagnosis — use provided values, identify dominant and deficient elements, explain their effect on living environment
+Step 2: Useful God directions — map the needed element to compass direction (Wood=East, Fire=South, Earth=Center/SW/NE, Metal=West/NW, Water=North), explain why these directions matter
+Step 3: Home layout — master bedroom orientation, workspace direction, wealth corner, kitchen/fire placement
+Step 4: Colors and materials — favorable colors (Wood=green, Fire=red/purple, Earth=yellow/beige, Metal=white/gold, Water=black/blue), avoid colors that clash with Useful God, material recommendations
+Step 5: Plants and objects — favorable plants, recommended crystals/items, things to avoid
+Step 6: This year's special notes — ${currentYear} stem-branch specific feng shui considerations
 
 ${FORMAT_EN}
-
-Conclusion: ~150 words, core advice on timing, direction, and industry`
+Conclusion: ~150 words, specific actionable advice for bedroom/workspace/overall atmosphere`
 
       default:
         return ''
@@ -511,11 +434,10 @@ Conclusion: ~150 words, core advice on timing, direction, and industry`
   }
 }
 
-// ── 主函数 ───────────────────────────────────────────────
 export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<ParsedResponse> {
-  const { user, bazi, featureKey, question, lang } = params
+  const { user, bazi, featureKey, question, lang, partner } = params
 
-  const userContext = buildUserContext(user, bazi, lang)
+  const userContext = buildUserContext(user, bazi, lang, partner)
   const systemPrompt = buildSystemPrompt(featureKey, lang)
 
   const userMessage = lang === 'zh'

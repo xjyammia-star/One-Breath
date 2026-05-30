@@ -1006,3 +1006,78 @@ input, textarea, select { font-family: var(--font-zh); }
   padding-top: 0.5rem;
   border-top: 1px solid rgba(155,125,58,0.12);
 }
+
+/* ══════════════════════════════════════════════════════
+   合盘对方信息输入区
+══════════════════════════════════════════════════════ */
+
+.partner-area {
+  margin: 0 1.5rem 0;
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md);
+  background: rgba(245,240,232,0.6);
+  overflow: hidden;
+}
+
+.partner-add-btn {
+  width: 100%; padding: 0.65rem 1rem;
+  font-size: 0.82rem; font-family: var(--font-zh);
+  color: var(--bronze); letter-spacing: 0.08em;
+  background: transparent; border: none; cursor: pointer;
+  text-align: left; transition: background 0.2s;
+}
+.partner-add-btn:hover { background: rgba(155,125,58,0.06); }
+
+.partner-set {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.55rem 1rem;
+}
+.partner-set-icon { font-size: 1rem; color: var(--bronze); }
+.partner-set-name { font-size: 0.88rem; font-weight: 600; color: #2a201a; }
+.partner-set-info { font-size: 0.75rem; color: #6a5f55; flex: 1; }
+.partner-clear-btn {
+  font-size: 0.72rem; color: var(--text-muted); background: transparent;
+  border: 1px solid var(--border-gold); border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem; cursor: pointer; transition: all 0.2s;
+}
+.partner-clear-btn:hover { color: var(--vermilion); border-color: var(--vermilion); }
+
+.partner-form {
+  padding: 0.75rem 1rem 0.9rem;
+  border-top: 1px solid rgba(155,125,58,0.2);
+  display: flex; flex-direction: column; gap: 0.55rem;
+}
+
+.partner-form-row {
+  display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;
+}
+
+.partner-input {
+  padding: 0.4rem 0.6rem; font-size: 0.82rem; font-family: var(--font-zh);
+  border: 1px solid var(--border-ink); border-radius: var(--radius-sm);
+  background: rgba(245,240,232,0.9); color: var(--text-primary);
+  outline: none; transition: border-color 0.2s;
+}
+.partner-input:focus { border-color: var(--bronze); }
+.partner-input-sm { width: 70px; }
+.partner-input-xs { width: 48px; text-align: center; }
+
+.partner-select {
+  padding: 0.4rem 0.5rem; font-size: 0.82rem; font-family: var(--font-zh);
+  border: 1px solid var(--border-ink); border-radius: var(--radius-sm);
+  background: rgba(245,240,232,0.9); color: var(--text-primary); outline: none;
+}
+
+.partner-sep { font-size: 0.8rem; color: var(--text-muted); }
+
+.partner-confirm-btn {
+  align-self: flex-start; padding: 0.4rem 1.2rem;
+  font-size: 0.82rem; font-family: var(--font-zh); letter-spacing: 0.1em;
+  color: var(--rice); background: var(--ink); border: none;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all 0.2s;
+}
+.partner-confirm-btn:hover { background: var(--turquoise); }
+
+.partner-hint {
+  font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.05em; font-style: italic;
+}
