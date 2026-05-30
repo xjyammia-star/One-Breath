@@ -36,6 +36,9 @@ const text = {
       '辰时 7-9时','巳时 9-11时','午时 11-13时','未时 13-15时',
       '申时 15-17时','酉时 17-19时','戌时 19-21时','亥时 21-23时',
     ],
+    yearError: '请输入1900-2025之间的年份',
+    monthError: '请输入1-12之间的月份',
+    dayError: '请输入1-31之间的日期',
   },
   en: {
     title: 'Create Your Chart',
@@ -63,36 +66,55 @@ const text = {
       'Chen 7-9h','Si 9-11h','Wu 11-13h','Wei 13-15h',
       'Shen 15-17h','You 17-19h','Xu 19-21h','Hai 21-23h',
     ],
+    yearError: 'Enter a year between 1900-2025',
+    monthError: 'Enter a month between 1-12',
+    dayError: 'Enter a day between 1-31',
   },
 }
 
 const currentYear = new Date().getFullYear()
+
+// 把字符串转成合法的数字，不合法返回 null
+function parseIntSafe(s: string, min: number, max: number): number | null {
+  const n = parseInt(s, 10)
+  if (isNaN(n)) return null
+  if (n < min || n > max) return null
+  return n
+}
 
 export default function Setup({ lang, onSave, onBack }: Props) {
   const t = text[lang]
 
   const [name, setName] = useState('')
   const [gender, setGender] = useState<'male' | 'female' | 'other'>('female')
-  const [year, setYear] = useState(1990)
-  const [month, setMonth] = useState(6)
-  const [day, setDay] = useState(15)
-  const [hourIndex, setHourIndex] = useState(6) // 午时=12h
+
+  // 用字符串存储，允许用户随时清空再输入
+  const [yearStr, setYearStr] = useState('1990')
+  const [monthStr, setMonthStr] = useState('6')
+  const [dayStr, setDayStr] = useState('15')
+
+  const [hourIndex, setHourIndex] = useState(6)
   const [birthPlace, setBirthPlace] = useState('')
 
-  // 计算农历
-  const lunarDate = solarToLunar(year, month, day)
-
-  // 时辰对应小时
   const hourMap = [23, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21]
 
+  const year  = parseIntSafe(yearStr,  1900, currentYear)
+  const month = parseIntSafe(monthStr, 1, 12)
+  const day   = parseIntSafe(dayStr,   1, 31)
+
+  const lunarDate = (year && month && day) ? solarToLunar(year, month, day) : ''
+
+  const canSubmit = year !== null && month !== null && day !== null
+
   const handleSubmit = () => {
+    if (!canSubmit) return
     onSave({
       name: name.trim() || (lang === 'zh' ? '访客' : 'Guest'),
       gender,
-      birthYear: year,
-      birthMonth: month,
-      birthDay: day,
-      birthHour: hourMap[hourIndex],
+      birthYear:  year!,
+      birthMonth: month!,
+      birthDay:   day!,
+      birthHour:  hourMap[hourIndex],
       birthPlace: birthPlace.trim() || (lang === 'zh' ? '未知' : 'Unknown'),
       lunarDate,
       createdAt: new Date().toISOString(),
@@ -102,7 +124,6 @@ export default function Setup({ lang, onSave, onBack }: Props) {
   return (
     <div className="setup-page">
       <div className="setup-panel">
-        {/* 头部 */}
         <div className="setup-header">
           <button className="back-btn" onClick={onBack}>{t.back}</button>
           <div className="setup-title-area">
@@ -112,7 +133,6 @@ export default function Setup({ lang, onSave, onBack }: Props) {
           </div>
         </div>
 
-        {/* 表单 */}
         <div className="setup-form">
           {/* 姓名 */}
           <div className="form-row">
@@ -147,40 +167,63 @@ export default function Setup({ lang, onSave, onBack }: Props) {
           <div className="form-row">
             <label className="form-label">{t.birthDate}</label>
             <div className="date-group">
+
+              {/* 年份：text + inputmode="numeric"，支持随意清空 */}
               <div className="date-field">
                 <input
-                  className="form-input date-input"
-                  type="number"
-                  min={1900}
-                  max={currentYear}
-                  value={year}
-                  onChange={e => setYear(Number(e.target.value))}
+                  className={`form-input date-input date-input-year${year === null && yearStr.length > 0 ? ' input-error' : ''}`}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="1990"
+                  value={yearStr}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    if (v.length <= 4) setYearStr(v)
+                  }}
                 />
                 <span className="date-unit">{t.year}</span>
               </div>
+
+              {/* 月份 */}
               <div className="date-field">
                 <input
-                  className="form-input date-input"
-                  type="number"
-                  min={1}
-                  max={12}
-                  value={month}
-                  onChange={e => setMonth(Number(e.target.value))}
+                  className={`form-input date-input${month === null && monthStr.length > 0 ? ' input-error' : ''}`}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="6"
+                  value={monthStr}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    if (v.length <= 2) setMonthStr(v)
+                  }}
                 />
                 <span className="date-unit">{t.month}</span>
               </div>
+
+              {/* 日期 */}
               <div className="date-field">
                 <input
-                  className="form-input date-input"
-                  type="number"
-                  min={1}
-                  max={31}
-                  value={day}
-                  onChange={e => setDay(Number(e.target.value))}
+                  className={`form-input date-input${day === null && dayStr.length > 0 ? ' input-error' : ''}`}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="15"
+                  value={dayStr}
+                  onChange={e => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    if (v.length <= 2) setDayStr(v)
+                  }}
                 />
                 <span className="date-unit">{t.day}</span>
               </div>
             </div>
+
+            {/* 错误提示 */}
+            {year === null && yearStr.length > 0 && (
+              <p className="input-error-msg">{t.yearError}</p>
+            )}
 
             {/* 农历显示 */}
             {lunarDate && (
@@ -224,7 +267,11 @@ export default function Setup({ lang, onSave, onBack }: Props) {
           {/* 提交 */}
           <div className="form-footer">
             <p className="privacy-note">{t.privacy}</p>
-            <button className="submit-btn" onClick={handleSubmit}>
+            <button
+              className={`submit-btn${!canSubmit ? ' submit-btn-disabled' : ''}`}
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+            >
               <span>{t.submit}</span>
               <span className="submit-glyph">卦</span>
             </button>
@@ -232,7 +279,6 @@ export default function Setup({ lang, onSave, onBack }: Props) {
         </div>
       </div>
 
-      {/* 背景装饰 */}
       <div className="setup-bg-deco" aria-hidden="true">
         <div className="deco-circle deco-circle-1" />
         <div className="deco-circle deco-circle-2" />
