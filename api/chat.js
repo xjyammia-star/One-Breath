@@ -137,13 +137,15 @@ export default async function handler(req, res) {
       if (!access.allowed) {
         const msg = access.reason === 'daily_limit_reached'
           ? '今日免费次数已用完，明日再来'
-          : access.reason === 'paid_required'
+          : access.reason === 'paid_required' || access.reason === 'feature_not_found'
           ? '此功能需要订阅后使用'
           : '功能暂不可用'
         return res.status(403).json({
           error: msg,
           reason: access.reason,
-          code: access.reason === 'paid_required' ? 'PAID_REQUIRED' : 'DAILY_LIMIT_REACHED'
+          code: (access.reason === 'paid_required' || access.reason === 'feature_not_found')
+            ? 'PAID_REQUIRED'
+            : 'DAILY_LIMIT_REACHED'
         })
       }
       await logUsage(session.user_id, featureKey, pool)
