@@ -1,5 +1,5 @@
 // sw.js — Service Worker for 一炁堂 PWA
-const CACHE_NAME = 'yiqitang-v1'
+const CACHE_NAME = 'yiqitang-v3'
 
 // 缓存的静态资源
 const STATIC_ASSETS = [

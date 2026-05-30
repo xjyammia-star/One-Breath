@@ -1,4 +1,5 @@
 // src/pages/Landing.tsx
+import { useEffect, useRef } from 'react'
 import { Lang } from '../types'
 import { useAuth } from '../utils/authContext'
 
@@ -58,9 +59,73 @@ const BAGUA = [
   { gua: '☷', name: '坤', en: 'Earth' },
 ]
 
+// 检测是否 PWA standalone 模式
+function isPWA(): boolean {
+  return (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    (window.navigator as any).standalone === true
+  )
+}
+
+// 获取状态栏高度
+function getStatusBarHeight(): number {
+  // 尝试读取 CSS env() 值
+  const el = document.createElement('div')
+  el.style.cssText = 'position:fixed;top:env(safe-area-inset-top,0px);height:0;visibility:hidden'
+  document.body.appendChild(el)
+  const rect = el.getBoundingClientRect()
+  document.body.removeChild(el)
+  const fromEnv = rect.top
+
+  if (fromEnv > 10) return fromEnv
+
+  // env() 未生效，按机型猜测
+  const h = window.screen.height
+  const w = window.screen.width
+  const ratio = window.devicePixelRatio || 1
+  const physH = h * ratio
+  const physW = w * ratio
+
+  // iPhone Pro Max / Plus (430pt wide)
+  if (w >= 428) return 59
+  // iPhone standard 14/15 (390pt)
+  if (w >= 375 && h >= 844) return 47
+  // iPhone SE
+  return 20
+}
+
 export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Props) {
   const t = text[lang]
   const { user: authUser, logout } = useAuth()
+  const topbarRef = useRef<HTMLDivElement>(null)
+  const heroRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const applyPadding = () => {
+      if (!isPWA()) return  // 浏览器模式不处理
+
+      const statusBar = getStatusBarHeight()
+      const topbarPad = statusBar + 10  // 状态栏 + 10px 呼吸感
+
+      if (topbarRef.current) {
+        topbarRef.current.style.paddingTop = `${topbarPad}px`
+      }
+
+      // hero 需要避开整个 topbar（topbar 总高度 = statusBar + 内容高度）
+      // topbar 内容高度约 44px，再加 20px 间距
+      const heroPad = statusBar + 44 + 24
+      if (heroRef.current) {
+        heroRef.current.style.paddingTop = `${heroPad}px`
+      }
+    }
+
+    // 立即执行一次
+    applyPadding()
+
+    // 也监听 orientationchange
+    window.addEventListener('orientationchange', applyPadding)
+    return () => window.removeEventListener('orientationchange', applyPadding)
+  }, [])
 
   return (
     <div className="landing">
@@ -108,7 +173,7 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
       </div>
 
       {/* ── 顶栏 ── */}
-      <div className="landing-topbar">
+      <div className="landing-topbar" ref={topbarRef}>
         <div className="lang-switcher">
           <button className={lang === 'zh' ? 'active' : ''} onClick={() => setLang('zh')}>中文</button>
           <span className="divider">|</span>
@@ -154,7 +219,7 @@ export default function Landing({ lang, setLang, onEnter, onLogin, hasUser }: Pr
       </div>
 
       {/* ── 主标题区 ── */}
-      <div className="hero">
+      <div className="hero" ref={heroRef}>
         <div className="hero-ornament hero-ornament-top" aria-hidden="true">
           <span className="orn-line" /><span className="orn-diamond">◆</span><span className="orn-line" />
         </div>
