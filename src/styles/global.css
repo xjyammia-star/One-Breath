@@ -52,6 +52,7 @@ body {
   line-height: 1.8;
   -webkit-font-smoothing: antialiased;
   /* iOS home indicator */
+  padding-bottom: 0;
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
@@ -182,12 +183,14 @@ input, textarea, select { font-family: var(--font-zh); }
   position: fixed; top: 0; left: 0; right: 0; z-index: 100;
   display: flex; align-items: center; justify-content: flex-end;
   gap: 1.5rem;
-  padding-top: calc(1.2rem + var(--safe-top));
+  padding-top: 1.2rem;
+  padding-top: calc(1.2rem + env(safe-area-inset-top, 44px));
   padding-bottom: 1.2rem;
   padding-left: 2rem;
   padding-right: 2rem;
-  background: linear-gradient(to bottom, rgba(210,200,180,0.55) 0%, transparent 100%);
-  backdrop-filter: blur(4px);
+  background: linear-gradient(to bottom, rgba(210,200,180,0.6) 0%, transparent 100%);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .landing-topbar .lang-switcher { position: static; top: auto; right: auto; }
 
@@ -248,7 +251,8 @@ input, textarea, select { font-family: var(--font-zh); }
 
 .hero {
   position: relative; z-index: 10; text-align: center;
-  padding: calc(4rem + var(--safe-top)) 1.5rem 2rem; max-width: 600px;
+  padding: 5rem 1.5rem 2rem; max-width: 600px;
+  padding-top: calc(5rem + env(safe-area-inset-top, 44px));
 }
 .hero-ornament {
   display: flex; align-items: center; gap: 0.75rem;
@@ -442,9 +446,11 @@ input, textarea, select { font-family: var(--font-zh); }
 
 .dash-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: calc(var(--safe-top) + 0.75rem) 2rem 0.75rem;
+  padding: 0.75rem 1.5rem;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 44px));
   border-bottom: 1px solid var(--border-gold);
-  background: rgba(245,240,232,0.92); backdrop-filter: blur(8px);
+  background: rgba(245,240,232,0.95);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
   position: sticky; top: 0; z-index: 50;
 }
 .dash-header-left, .dash-header-right { display: flex; align-items: center; gap: 1rem; }
@@ -736,18 +742,30 @@ input, textarea, select { font-family: var(--font-zh); }
    管理后台 (Admin)
 ══════════════════════════════════════════════════════ */
 .admin-page { min-height: 100vh; background: linear-gradient(160deg, #e0d8c4, #ede3cc); display: flex; flex-direction: column; }
-.admin-header { display: flex; align-items: center; gap: 1.5rem; padding: 1rem 2rem; background: rgba(245,240,232,0.9); border-bottom: 1px solid var(--border-gold); backdrop-filter: blur(8px); flex-wrap: wrap; }
-.admin-title  { font-size: 1.1rem; font-weight: 500; letter-spacing: 0.25em; color: var(--ink); }
-.admin-tabs   { display: flex; gap: 0.5rem; margin-left: auto; }
-.admin-tab { padding: 0.4rem 1.2rem; font-size: 0.88rem; letter-spacing: 0.1em; color: var(--text-secondary); border: 1px solid var(--border-ink); border-radius: var(--radius-sm); background: transparent; transition: all 0.2s; }
+.admin-header {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  padding-top: calc(0.75rem + env(safe-area-inset-top, 44px));
+  background: rgba(245,240,232,0.95); border-bottom: 1px solid var(--border-gold);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  flex-wrap: wrap; position: sticky; top: 0; z-index: 50;
+}
+.admin-title  { font-size: 1rem; font-weight: 500; letter-spacing: 0.2em; color: var(--ink); }
+.admin-tabs   { display: flex; gap: 0.4rem; margin-left: auto; flex-wrap: wrap; }
+.admin-tab {
+  padding: 0.45rem 0.9rem; font-size: 0.82rem; letter-spacing: 0.05em;
+  color: var(--text-secondary); border: 1px solid var(--border-ink);
+  border-radius: var(--radius-sm); background: transparent; transition: all 0.2s;
+  white-space: nowrap;
+}
 .admin-tab.active          { color: var(--rice); background: var(--ink); border-color: var(--ink); }
 .admin-tab:hover:not(.active) { border-color: var(--bronze); color: var(--ink); }
-.admin-body { flex: 1; padding: 1.5rem 2rem; overflow-x: auto; }
+.admin-body { flex: 1; padding: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .admin-msg  { padding: 0.6rem 1rem; background: rgba(61,125,110,0.1); border-left: 2px solid var(--turquoise); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; font-size: 0.85rem; color: var(--turquoise); margin-bottom: 1rem; }
 .admin-section { background: rgba(245,240,232,0.85); border: 1px solid var(--border-gold); border-radius: var(--radius-lg); overflow: hidden; }
-.admin-table th { padding: 0.75rem 1rem; text-align: left; font-weight: 500; letter-spacing: 0.1em; color: var(--text-muted); border-bottom: 1px solid var(--border-gold); background: rgba(155,125,58,0.05); white-space: nowrap; }
-.admin-table    { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
-.admin-table td { padding: 0.75rem 1rem; color: var(--text-primary); border-bottom: 1px solid rgba(155,125,58,0.12); vertical-align: middle; }
+.admin-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; min-width: 500px; }
+.admin-table th { padding: 0.6rem 0.75rem; text-align: left; font-weight: 500; letter-spacing: 0.05em; color: var(--text-muted); border-bottom: 1px solid var(--border-gold); background: rgba(155,125,58,0.05); white-space: nowrap; }
+.admin-table td { padding: 0.6rem 0.75rem; color: var(--text-primary); border-bottom: 1px solid rgba(155,125,58,0.12); vertical-align: middle; }
 .admin-table tr:last-child td { border-bottom: none; }
 .admin-table tr:hover td      { background: rgba(155,125,58,0.04); }
 .badge           { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 20px; font-size: 0.75rem; letter-spacing: 0.05em; }
@@ -1092,3 +1110,68 @@ input, textarea, select { font-family: var(--font-zh); }
 .partner-hint {
   font-size: 0.72rem; color: var(--text-muted); letter-spacing: 0.05em; font-style: italic;
 }
+
+/* ══════════════════════════════════════════════════════
+   Admin 手机适配 — 卡片式布局
+══════════════════════════════════════════════════════ */
+
+.admin-loading { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem; }
+
+/* 用户卡片 */
+.admin-cards { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.admin-user-card {
+  background: rgba(245,240,232,0.9); border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg); padding: 1rem;
+  display: flex; flex-direction: column; gap: 0.5rem;
+}
+.auc-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+}
+.auc-email {
+  font-size: 0.88rem; color: #1a1612; font-weight: 500;
+  word-break: break-all; flex: 1;
+}
+.auc-mid {
+  display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+}
+.auc-plan  { font-size: 0.82rem; font-weight: 600; letter-spacing: 0.05em; }
+.auc-expiry { font-size: 0.75rem; color: #7a6f62; }
+.auc-date   { font-size: 0.72rem; color: #9a8f82; }
+.auc-edit {
+  align-self: flex-end; padding: 0.35rem 1rem;
+  font-size: 0.8rem; letter-spacing: 0.08em;
+  color: var(--text-secondary); border: 1px solid var(--border-ink);
+  border-radius: var(--radius-sm); background: transparent;
+  transition: all 0.2s;
+}
+.auc-edit:hover { border-color: var(--bronze); color: var(--bronze); }
+
+/* 功能开关卡片 */
+.admin-features { display: flex; flex-direction: column; gap: 1.25rem; }
+
+.admin-feature-group { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.afg-title {
+  font-size: 0.72rem; letter-spacing: 0.2em; color: var(--bronze);
+  font-weight: 600; padding: 0.3rem 0; position: relative;
+  border-bottom: 1px solid rgba(155,125,58,0.25);
+}
+
+.admin-feature-card {
+  background: rgba(245,240,232,0.9); border: 1px solid var(--border-gold);
+  border-radius: var(--radius-md); overflow: hidden;
+}
+.afc-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0.7rem 1rem; border-bottom: 1px solid rgba(155,125,58,0.15);
+  background: rgba(155,125,58,0.04);
+}
+.afc-name { font-size: 0.88rem; color: #1a1612; font-weight: 500; letter-spacing: 0.05em; }
+.afc-body { padding: 0.6rem 1rem; display: flex; flex-direction: column; gap: 0.5rem; }
+.afc-row  { display: flex; align-items: center; justify-content: space-between; }
+.afc-label { font-size: 0.78rem; color: #5a4f42; letter-spacing: 0.05em; }
+
+/* 编辑弹窗优化 */
+.admin-modal-title { font-size: 1.1rem; font-weight: 500; color: var(--ink); margin-bottom: 0.25rem; }
+.admin-modal-email { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 1.25rem; word-break: break-all; }
