@@ -2,7 +2,7 @@
 import { useState, useMemo, useRef } from 'react'
 import { useAuth } from '../utils/authContext'
 import { UserProfile, Lang, Module, AnalysisResult } from '../types'
-import { analyzeWithDeepSeek, ApiError, FeatureKey, ParsedResponse, CorpusSource, PartnerProfile } from '../utils/ai'
+import { analyzeWithDeepSeek, analyzeWithVision, ApiError, FeatureKey, ParsedResponse, CorpusSource, PartnerProfile, VisionFeatureKey } from '../utils/ai'
 import { getBaZi, getDaYun } from '../utils/bazi'
 import OracleLoader from '../components/OracleLoader'
 
@@ -23,8 +23,8 @@ interface ExtendedResult extends AnalysisResult {
 }
 
 const MODULE_FEATURES: Record<Module, { basic: FeatureKey; deep: FeatureKey; extra?: FeatureKey }> = {
-  self:   { basic: 'self_basic',   deep: 'self_deep'                        },
-  people: { basic: 'people_basic', deep: 'people_deep'                      },
+  self:   { basic: 'self_basic',   deep: 'self_deep',    extra: 'palm_reading'   },
+  people: { basic: 'people_basic', deep: 'people_deep'                           },
   world:  { basic: 'world_year',   deep: 'world_timing', extra: 'world_fengshui' },
 }
 
@@ -234,13 +234,13 @@ const text = {
   zh: {
     greeting: (name: string) => `${name}的命盘`,
     modules: [
-      { id: 'self' as Module,   icon: '☲', name: '与己',   sub: '自身命盘·五行·格局',  locked: false },
+      { id: 'self' as Module,   icon: '☲', name: '与己',   sub: '自身命盘·五行·手相',  locked: false },
       { id: 'people' as Module, icon: '☯', name: '与人',   sub: '关系·合婚·人际',       locked: true  },
       { id: 'world' as Module,  icon: '☰', name: '与世界', sub: '时运·流年·风水·世界能量', locked: true  },
     ],
     depthTabs: { basic: '基础', deep: '深度', extra: '风水' },
     depthDesc: {
-      self:   { basic: '五行概况·性格·今年运势', deep: '十神格局·用神·大运流年·深度解析' },
+      self:   { basic: '五行概况·性格·今年运势', deep: '十神格局·用神·大运流年·深度解析', extra: '手相分析·纹路·丘位·与命局结合' },
       people: { basic: '五行相合·关系优劣', deep: '日柱配对·婚姻宫·合冲·走势预判' },
       world:  { basic: '流年五行·今年影响', deep: '择吉时机·方位·行业·避忌', extra: '居家风水·方位·颜色·物品' },
     },
@@ -255,6 +255,8 @@ const text = {
       world_year:   ['当前世界能量场是什么状态？', '今年的年运有何提示？', '哪个方向有利于我的发展？'],
       world_timing: ['今年哪个月最适合重大决策？', '我适合往哪个方向发展？', '今年有哪些时间需要避忌？'],
       world_fengshui: ['我家哪个方位最适合我？', '我适合什么颜色的家居？', '我的财位在哪个方向？'],
+      palm_reading:   ['分析我的生命线', '我的感情线如何？', '我的命运线显示什么？'],
+      fengshui_photo: ['分析这个空间的风水', '这个房间的五行能量如何？', '我需要做哪些风水调整？'],
     },
     reset: '重置命盘', langSwitch: 'EN', back: '← 主页',
     partnerTitle: '对方生辰', partnerName: '对方姓名', partnerNamePh: '可选',
@@ -280,13 +282,13 @@ const text = {
   en: {
     greeting: (name: string) => `${name}'s Chart`,
     modules: [
-      { id: 'self' as Module,   icon: '☲', name: 'The Self',  sub: 'Birth chart · Elements · Pattern', locked: false },
+      { id: 'self' as Module,   icon: '☲', name: 'The Self',  sub: 'Birth chart · Elements · Palm', locked: false },
       { id: 'people' as Module, icon: '☯', name: 'Relations', sub: 'Compatibility · Bonds · People',   locked: true  },
       { id: 'world' as Module,  icon: '☰', name: 'The World', sub: 'Timing · Annual cycle · Feng Shui', locked: true  },
     ],
     depthTabs: { basic: 'Basic', deep: 'Deep', extra: 'Feng Shui' },
     depthDesc: {
-      self:   { basic: 'Elements · Character · This Year', deep: 'Ten Gods · Useful God · Da Yun · Full Analysis' },
+      self:   { basic: 'Elements · Character · This Year', deep: 'Ten Gods · Useful God · Da Yun · Full Analysis', extra: 'Palm Reading · Lines · Mounts · With Ba Zi' },
       people: { basic: 'Elemental Fit · Relationship', deep: 'Day Pillar · Marriage Palace · Cycles' },
       world:  { basic: 'Annual Elements · Year Impact', deep: 'Timing · Directions · Industries · Cautions', extra: 'Home Feng Shui · Directions · Colors · Objects' },
     },
@@ -301,6 +303,8 @@ const text = {
       world_year:   ['What is the current world energy?', 'What guidance does this year offer?', 'Which direction favors my growth?'],
       world_timing: ['Which month is best for major decisions?', 'Which direction should I focus on?', 'What periods should I avoid?'],
       world_fengshui: ['Which direction is best for my home?', 'What colors suit my energy?', 'Where is my wealth corner?'],
+      palm_reading:   ['Analyze my life line', 'What does my heart line reveal?', 'What does my fate line show?'],
+      fengshui_photo: ['Analyze the feng shui of this space', 'What are the Five Elements here?', 'What adjustments should I make?'],
     },
     reset: 'Reset Chart', langSwitch: '中文', back: '← Home',
     partnerTitle: "Partner's Chart", partnerName: 'Name', partnerNamePh: 'optional',
@@ -441,6 +445,11 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
   const [loading, setLoading] = useState(false)
   const [results, setResults] = useState<ExtendedResult[]>([])
   const [modal, setModal] = useState<ModalType>(null)
+  // 视觉分析：图片上传
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [photoPreview, setPhotoPreview] = useState<string>('')
+  const [photoLoading, setPhotoLoading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   // 合盘：对方信息
   const [partner, setPartner] = useState<PartnerProfile | null>(null)
   const [showPartnerForm, setShowPartnerForm] = useState(false)
@@ -511,6 +520,44 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
     }
     setLoading(false)
   }
+
+  const handlePhotoAnalyze = async () => {
+    if (!photoFile) return
+    if (!authUser) { setModal('login_required'); return }
+    setPhotoLoading(true)
+    try {
+      const visionKey: VisionFeatureKey = activeModule === 'self' ? 'palm_reading' : 'fengshui_photo'
+      const reader = new FileReader()
+      reader.onload = async (e) => {
+        const dataUrl = e.target?.result as string
+        const base64 = dataUrl.split(',')[1]
+        const mimeType = photoFile.type || 'image/jpeg'
+        try {
+          const parsed = await analyzeWithVision({ imageBase64: base64, imageType: mimeType, featureKey: visionKey, user, bazi, lang })
+          const queryLabel = visionKey === 'palm_reading'
+            ? (lang === 'zh' ? '手相分析' : 'Palm Reading')
+            : (lang === 'zh' ? '风水照片分析' : 'Feng Shui Photo Analysis')
+          setResults(prev => [{
+            module: activeModule, query: queryLabel,
+            response: parsed.conclusion, reasoning: parsed.reasoning,
+            sources: [], timestamp: new Date().toISOString(),
+          }, ...prev])
+          setPhotoFile(null); setPhotoPreview('')
+        } catch (err) {
+          if (err instanceof ApiError) {
+            if (err.code === 'LOGIN_REQUIRED')  { setModal('login_required'); return }
+            if (err.code === 'PAID_REQUIRED')   { setModal('paid_required');  return }
+            if (err.code === 'DAILY_LIMIT_REACHED') { setModal('limit_reached'); return }
+          }
+        } finally { setPhotoLoading(false) }
+      }
+      reader.readAsDataURL(photoFile)
+    } catch { setPhotoLoading(false) }
+  }
+
+  // 是否显示图片上传区（手相 or 风水照片 tab）
+  const isPhotoMode = depthMode === 'extra' &&
+    (activeModule === 'self' || activeModule === 'world')
 
   return (
     <div className="dashboard">
@@ -678,9 +725,12 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               <button className={`depth-tab${depthMode === 'deep' ? ' active' : ''}${!hasPaid ? ' depth-tab-locked' : ''}`} onClick={() => handleDepthSwitch('deep')}>
                 {t.depthTabs.deep}{!hasPaid && <span className="depth-lock-icon">🔒</span>}
               </button>
-              {activeModule === 'world' && MODULE_FEATURES.world.extra && (
+              {(activeModule === 'world' || activeModule === 'self') && MODULE_FEATURES[activeModule].extra && (
                 <button className={`depth-tab${depthMode === 'extra' ? ' active' : ''}${!hasPaid ? ' depth-tab-locked' : ''}`} onClick={() => handleDepthSwitch('extra' as any)}>
-                  {t.depthTabs.extra}{!hasPaid && <span className="depth-lock-icon">🔒</span>}
+                  {activeModule === 'self'
+                    ? (lang === 'zh' ? '手相' : 'Palm')
+                    : t.depthTabs.extra}
+                  {!hasPaid && <span className="depth-lock-icon">🔒</span>}
                 </button>
               )}
             </div>
@@ -753,6 +803,59 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>{q}</button>
             ))}
           </div>
+
+          {/* ── 图片上传区（手相/风水照片模式）── */}
+          {isPhotoMode && (
+            <div className="photo-upload-area">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                style={{ display: 'none' }}
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setPhotoFile(file)
+                  const url = URL.createObjectURL(file)
+                  setPhotoPreview(url)
+                }}
+              />
+              {photoPreview ? (
+                <div className="photo-preview-wrap">
+                  <img src={photoPreview} alt="preview" className="photo-preview-img" />
+                  <div className="photo-preview-actions">
+                    <button className="photo-retake-btn" onClick={() => { setPhotoFile(null); setPhotoPreview('') }}>
+                      {lang === 'zh' ? '重新选择' : 'Change Photo'}
+                    </button>
+                    <button
+                      className={`photo-analyze-btn${photoLoading ? ' loading' : ''}`}
+                      onClick={handlePhotoAnalyze}
+                      disabled={photoLoading}
+                    >
+                      {photoLoading
+                        ? (lang === 'zh' ? '分析中…' : 'Analyzing…')
+                        : (lang === 'zh' ? '开始分析' : 'Analyze')}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="photo-upload-empty" onClick={() => fileInputRef.current?.click()}>
+                  <div className="photo-upload-icon">☯</div>
+                  <div className="photo-upload-label">
+                    {activeModule === 'self'
+                      ? (lang === 'zh' ? '拍摄或上传手掌照片' : 'Take or upload a palm photo')
+                      : (lang === 'zh' ? '拍摄或上传居家照片' : 'Take or upload a home photo')}
+                  </div>
+                  <div className="photo-upload-hint">
+                    {activeModule === 'self'
+                      ? (lang === 'zh' ? '建议拍摄右手掌心，光线充足，平放拍摄' : 'Right palm, good lighting, flat angle')
+                      : (lang === 'zh' ? '建议拍摄整个房间，包含主要家具' : 'Capture the whole room including main furniture')}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="ask-area">
             <textarea

@@ -90,7 +90,7 @@ export function parseResponse(raw: string): ParsedResponse {
   return { reasoning: '', conclusion: cleaned, sources: [] }
 }
 
-function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang, partner?: PartnerProfile): string {
+export function buildUserContext(user: UserProfile, bazi: BaZi, lang: Lang, partner?: PartnerProfile): string {
   const wuxing = calcWuxing(bazi)
   const currentYear = new Date().getFullYear()
   const wuxingSorted = Object.entries(wuxing).sort(([,a],[,b]) => b - a)
@@ -472,5 +472,56 @@ export async function analyzeWithDeepSeek(params: AnalyzeParams): Promise<Parsed
 
   const parsed = parseResponse(raw)
   parsed.sources = data.sources || []
+  return parsed
+}
+
+// ── 视觉分析（手相 / 风水照片）──────────────────────────
+export type VisionFeatureKey = 'palm_reading' | 'fengshui_photo'
+
+export interface VisionAnalyzeParams {
+  imageBase64: string
+  imageType: string
+  featureKey: VisionFeatureKey
+  user: UserProfile
+  bazi: BaZi
+  lang: Lang
+}
+
+export async function analyzeWithVision(params: VisionAnalyzeParams): Promise<ParsedResponse> {
+  const { imageBase64, imageType, featureKey, user, bazi, lang } = params
+
+  // 复用 buildUserContext 传入命盘信息
+  const userContext = buildUserContext(user, bazi, lang)
+
+  const token = localStorage.getItem('yiqitang_token')
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const response = await fetch('/api/fengshui-vision', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      imageBase64,
+      imageType,
+      featureKey,
+      userContext,
+      lang,
+    }),
+  })
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new ApiError(
+      err.error || `API error: ${response.status}`,
+      err.code || (response.status === 401 ? 'LOGIN_REQUIRED' : 'UNKNOWN')
+    )
+  }
+
+  const data = await response.json()
+  const raw = data.choices?.[0]?.message?.content
+    || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
+
+  const parsed = parseResponse(raw)
+  parsed.sources = []
   return parsed
 }
