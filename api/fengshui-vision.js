@@ -183,7 +183,8 @@ export default async function handler(req, res) {
           ? '请仔细观察图片中的居家空间，详细分析：\n1. 房间类型和整体布局\n2. 家具摆放位置和朝向\n3. 颜色基调（墙壁、家具、装饰）\n4. 光线情况（自然光/人工光）\n5. 可见的五行元素（木质/金属/水元素/植物等）\n6. 明显的风水问题\n\n请结合图片中实际看到的空间情况，与我的八字命盘进行风水分析，给出具体可操作的建议。'
           : 'Please carefully examine this home space and analyze:\n1. Room type and overall layout\n2. Furniture placement and orientation\n3. Color palette (walls, furniture, decor)\n4. Lighting (natural/artificial)\n5. Visible Five Elements (wood/metal/water/plants etc.)\n6. Any obvious feng shui issues\n\nCombine what you actually observe in the space with my Ba Zi chart for targeted feng shui recommendations.')
 
-    const apiKey = process.env.DEEPSEEK_API_KEY
+    // 视觉模型优先用 DOUBAO_API_KEY，没有则回退到 DEEPSEEK_API_KEY
+    const apiKey = process.env.DOUBAO_API_KEY || process.env.DEEPSEEK_API_KEY
     const visionModel = process.env.DOUBAO_VISION_MODEL
 
     if (!visionModel) {
@@ -195,25 +196,21 @@ export default async function handler(req, res) {
     console.log('[vision] imageBase64 length:', imageBase64?.length || 0)
     console.log('[vision] mimeType:', mimeType)
     console.log('[vision] model:', visionModel)
+    // 检查 base64 是否超过 10MB（火山引擎限制）
+    const base64SizeMB = (imageBase64?.length || 0) * 0.75 / 1024 / 1024
+    console.log('[vision] estimated image size MB:', base64SizeMB.toFixed(2))
+    if (base64SizeMB > 8) {
+      return res.status(400).json({ error: '图片太大，请压缩后重试（建议小于5MB）' })
+    }
 
-    // 调用 Doubao Vision API（火山引擎，OpenAI 兼容格式）
-    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
+    const requestBody = JSON.stringify({
         model: visionModel,
         messages: [
           { role: 'system', content: systemPrompt },
           {
             role: 'user',
             content: [
-              {
-                type: 'text',
-                text: userPromptText,
-              },
+              { type: 'text', text: userPromptText },
               {
                 type: 'image_url',
                 image_url: {
@@ -226,7 +223,17 @@ export default async function handler(req, res) {
         ],
         max_tokens: 3000,
         temperature: 0.7,
-      }),
+      })
+    console.log('[vision] request body size KB:', (requestBody.length / 1024).toFixed(1))
+
+    // 调用 Doubao Vision API（火山引擎，OpenAI 兼容格式）
+    const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: requestBody,
     })
 
     const text = await response.text()
