@@ -830,6 +830,27 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                 <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>{q}</button>
               ))}
             </div>
+
+
+          {/* 手相/风水照片模式下隐藏文字输入框 */}
+          {!isPhotoMode && (
+            <div className="ask-area">
+              <textarea
+                className="ask-textarea"
+                placeholder={t.askPlaceholder}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                rows={3}
+              />
+              <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
+                {loading ? t.sending : t.send}
+              </button>
+            </div>
+          )}
+
+          <div className="results-area">
+            {/* 手相/风水模式：上传区始终显示在结果顶部 */}
           )}
           {isPhotoMode && (
             <div className="photo-upload-area">
@@ -896,39 +917,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               )}
             </div>
           )}
-
-
-          {/* 手相/风水照片模式下隐藏文字输入框 */}
-          {!isPhotoMode && (
-            <div className="ask-area">
-              <textarea
-                className="ask-textarea"
-                placeholder={t.askPlaceholder}
-                value={query}
-                onChange={e => setQuery(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                rows={3}
-              />
-              <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
-                {loading ? t.sending : t.send}
-              </button>
-            </div>
-          )}
-
-          <div className="results-area">
-            {/* 手相/风水模式：结果顶部显示重新上传按钮 */}
-            {isPhotoMode && results.length > 0 && !loading && (
-              <button className="photo-reupload-btn" onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.value = ''
-                  fileInputRef.current.click()
-                }
-              }}>
-                {activeModule === 'self'
-                  ? (lang === 'zh' ? '+ 上传新手相照片' : '+ Upload new palm photo')
-                  : (lang === 'zh' ? '+ 上传新居家照片' : '+ Upload new home photo')}
-              </button>
-            )}
+            
             {results.length === 0 && !loading && (
               <div className="results-empty">
                 <div className="empty-glyph">☯</div>
