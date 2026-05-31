@@ -831,10 +831,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               ))}
             </div>
           )}
-
-
-
-          {/* ── 图片上传区（手相/风水照片模式）── */}
           {isPhotoMode && (
             <div className="photo-upload-area">
               <input
@@ -900,21 +896,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               )}
             </div>
           )}
-          <div className="results-area">
-            {results.length === 0 && !loading && (
-              <div className="results-empty">
-                <div className="empty-glyph">☯</div>
-                <p>{lang === 'zh' ? '天地静待，问则应。' : 'Heaven and Earth await your question.'}</p>
-              </div>
-            )}
-            {loading && <OracleLoader lang={lang} />}
-            {results.map((r, i) => <ResultCard key={i} result={r} lang={lang} />)}
-          </div>
-        </main>
-      </div>
-    </div>
-  )
-}
 
 
           <div className="ask-area">
@@ -930,3 +911,19 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               {loading ? t.sending : t.send}
             </button>
           </div>
+
+          <div className="results-area">
+            {results.length === 0 && !loading && (
+              <div className="results-empty">
+                <div className="empty-glyph">☯</div>
+                <p>{lang === 'zh' ? '天地静待，问则应。' : 'Heaven and Earth await your question.'}</p>
+              </div>
+            )}
+            {loading && <OracleLoader lang={lang} />}
+            {results.map((r, i) => <ResultCard key={i} result={r} lang={lang} />)}
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}

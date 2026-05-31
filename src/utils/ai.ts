@@ -79,14 +79,17 @@ export function parseResponse(raw: string): ParsedResponse {
   const marker = '===CONCLUSION==='
   const idx = cleaned.indexOf(marker)
   if (idx !== -1) {
-    const conclusion = cleaned.slice(idx + marker.length).trim()
-    const reasoning = cleaned.slice(0, idx).trim()
-    // 如果结论为空，说明分隔符在末尾，把推理内容作为结论
-    if (!conclusion) {
-      return { reasoning: '', conclusion: reasoning, sources: [] }
+    const afterMarker = cleaned.slice(idx + marker.length).trim()
+    const beforeMarker = cleaned.slice(0, idx).trim()
+    if (!afterMarker) {
+      // 分隔符在末尾，全部内容作为结论
+      return { reasoning: '', conclusion: beforeMarker, sources: [] }
     }
-    return { reasoning, conclusion, sources: [] }
+    return { reasoning: beforeMarker, conclusion: afterMarker, sources: [] }
   }
+  // 没有分隔符，检查是否文本里混有分隔符字样（直接替换掉）
+  const cleanedFinal = cleaned.replace(/===CONCLUSION===/g, '\n').trim()
+  return { reasoning: '', conclusion: cleanedFinal, sources: [] }
   const fallbackMarkers = ['【结论】', '【建议】', '【总结】', 'Conclusion', 'In summary']
   for (const m of fallbackMarkers) {
     const fi = cleaned.indexOf(m)
