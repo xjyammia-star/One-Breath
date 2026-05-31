@@ -519,10 +519,22 @@ export async function analyzeWithVision(params: VisionAnalyzeParams): Promise<Pa
   }
 
   const data = await response.json()
-  const raw = data.choices?.[0]?.message?.content
-    || (lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.')
+  const message = data.choices?.[0]?.message
+
+  // Doubao 模型有 reasoning_content（思维链）和 content（最终回答）两个字段
+  const reasoning = message?.reasoning_content || ''
+  const mainContent = message?.content || ''
+
+  // 如果 content 有内容，直接用；否则从 reasoning_content 里取
+  const fallback = lang === 'zh' ? '天机难测，请稍后再试。' : 'The oracle is silent. Please try again.'
+  const raw = mainContent || reasoning || fallback
 
   const parsed = parseResponse(raw)
+  // 如果有独立的推理内容，单独存放
+  if (reasoning && mainContent) {
+    parsed.reasoning = reasoning
+    parsed.conclusion = cleanText(mainContent)
+  }
   parsed.sources = []
   return parsed
 }
