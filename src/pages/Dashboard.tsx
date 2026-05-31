@@ -844,16 +844,26 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                   const file = e.target.files?.[0]
                   if (!file) return
                   setPhotoFile(file)
-                  const url = URL.createObjectURL(file)
-                  setPhotoPreview(url)
+                  setPhotoPreview(URL.createObjectURL(file))
                 }}
               />
-              {photoPreview ? (
-                <div className="photo-preview-wrap">
-                  <img src={photoPreview} alt="preview" className="photo-preview-img" />
-                  <div className="photo-preview-actions">
-                    <button className="photo-retake-btn" onClick={() => { setPhotoFile(null); setPhotoPreview('') }}>
-                      {lang === 'zh' ? '重新选择' : 'Change Photo'}
+              {photoFile ? (
+                <div className="photo-ready-wrap">
+                  <div className="photo-ready-info">
+                    <span className="photo-ready-icon">✓</span>
+                    <span className="photo-ready-text">
+                      {lang === 'zh' ? '照片已成功上传' : 'Photo uploaded successfully'}
+                    </span>
+                    <span className="photo-ready-name">{photoFile.name}</span>
+                  </div>
+                  <div className="photo-ready-actions">
+                    <button className="photo-retake-btn" onClick={() => {
+                      setPhotoFile(null)
+                      setPhotoPreview('')
+                      // 重置 input，确保可以重新选择同一张图片
+                      if (fileInputRef.current) fileInputRef.current.value = ''
+                    }}>
+                      {lang === 'zh' ? '重新选择' : 'Change'}
                     </button>
                     <button
                       className={`photo-analyze-btn${photoLoading ? ' loading' : ''}`}
@@ -867,7 +877,10 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                   </div>
                 </div>
               ) : (
-                <div className="photo-upload-empty" onClick={() => fileInputRef.current?.click()}>
+                <div className="photo-upload-empty" onClick={() => {
+                  if (fileInputRef.current) fileInputRef.current.value = ''
+                  fileInputRef.current?.click()
+                }}>
                   <div className="photo-upload-icon">☯</div>
                   <div className="photo-upload-label">
                     {activeModule === 'self'
@@ -876,7 +889,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                   </div>
                   <div className="photo-upload-hint">
                     {activeModule === 'self'
-                      ? (lang === 'zh' ? '建议拍摄右手掌心，光线充足，平放拍摄' : 'Right palm, good lighting, flat angle')
+                      ? (lang === 'zh' ? '建议右手掌心朝上，光线充足' : 'Right palm facing up, good lighting')
                       : (lang === 'zh' ? '建议拍摄整个房间，包含主要家具' : 'Capture the whole room including main furniture')}
                   </div>
                 </div>

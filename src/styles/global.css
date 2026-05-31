@@ -1203,7 +1203,6 @@ input, textarea, select { font-family: var(--font-zh); }
   background: rgba(245,240,232,0.6);
   overflow: hidden;
   transition: border-color 0.2s;
-  max-height: 160px;
   display: flex;
   flex-direction: column;
 }
@@ -1224,21 +1223,29 @@ input, textarea, select { font-family: var(--font-zh); }
   letter-spacing: 0.03em; line-height: 1.4;
 }
 
-.photo-preview-wrap {
+/* 照片已上传状态（不显示预览图，只显示文字） */
+.photo-ready-wrap {
   display: flex; flex-direction: column; gap: 0;
 }
-.photo-preview-img {
-  width: 100%;
-  height: 100px;
-  object-fit: cover;
-  object-position: center top;
-  display: block;
-  flex-shrink: 0;
+.photo-ready-info {
+  display: flex; align-items: center; gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  background: rgba(61,125,110,0.06);
+  border-bottom: 1px solid rgba(155,125,58,0.15);
 }
-.photo-preview-actions {
-  display: flex; gap: 0; flex-shrink: 0;
-  /* 确保按钮区始终可见 */
-  min-height: 48px;
+.photo-ready-icon {
+  font-size: 1rem; color: #3d7d6e; font-weight: 700; flex-shrink: 0;
+}
+.photo-ready-text {
+  font-size: 0.85rem; color: #1a3a30; font-weight: 500;
+  letter-spacing: 0.04em; flex-shrink: 0;
+}
+.photo-ready-name {
+  font-size: 0.72rem; color: var(--text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.photo-ready-actions {
+  display: flex; gap: 0; min-height: 44px;
 }
 .photo-retake-btn {
   flex: 1; padding: 0.75rem 0.5rem; font-size: 0.82rem;
