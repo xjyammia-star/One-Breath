@@ -185,7 +185,9 @@ export default async function handler(req, res) {
 
     // 视觉模型优先用 DOUBAO_API_KEY，没有则回退到 DEEPSEEK_API_KEY
     const apiKey = process.env.DOUBAO_API_KEY || process.env.DEEPSEEK_API_KEY
-    const visionModel = process.env.DOUBAO_VISION_MODEL
+    // 直接用模型 ID，不用接入点 ID，避免接入点权限问题
+    // 如果配置了 DOUBAO_VISION_MODEL 就用接入点，否则用官方模型 ID
+    const visionModel = process.env.DOUBAO_VISION_MODEL || 'doubao-seed-2-0-lite-260428'
 
     if (!visionModel) {
       return res.status(500).json({ error: '视觉模型未配置，请联系管理员' })
