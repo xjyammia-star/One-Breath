@@ -203,6 +203,42 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: '图片太大，请压缩后重试（建议小于5MB）' })
     }
 
+    // 先尝试上传图片到 Cloudinary 获取公开 URL
+    // 如果没有配置 Cloudinary，直接用 base64
+    // 火山引擎 vision API 直接接受 base64 字符串（不需要 data: 前缀）
+    // 参考: https://blog.csdn.net/m0_52620144/article/details/147123411
+    let imageUrl = imageBase64  // 纯 base64，不加 data: 前缀
+    let useRawBase64 = true
+
+    const cloudinaryUrl = process.env.CLOUDINARY_URL
+    const cloudinaryName = process.env.CLOUDINARY_CLOUD_NAME
+    const cloudinaryPreset = process.env.CLOUDINARY_UPLOAD_PRESET || 'ml_default'
+
+    if (cloudinaryName) {
+      try {
+        const uploadRes = await fetch(
+          `https://api.cloudinary.com/v1_1/${cloudinaryName}/image/upload`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file: `data:${mimeType};base64,${imageBase64}`,
+              upload_preset: cloudinaryPreset,
+              folder: 'yiqitang_vision',
+            }),
+          }
+        )
+        if (uploadRes.ok) {
+          const uploadData = await uploadRes.json()
+          imageUrl = uploadData.secure_url
+          useRawBase64 = false
+          console.log('[vision] uploaded to cloudinary:', imageUrl)
+        }
+      } catch (e) {
+        console.log('[vision] cloudinary upload failed, using base64:', e.message)
+      }
+    }
+
     const requestBody = JSON.stringify({
         model: visionModel,
         messages: [
@@ -214,8 +250,7 @@ export default async function handler(req, res) {
               {
                 type: 'image_url',
                 image_url: {
-                  url: `data:${mimeType};base64,${imageBase64}`,
-                  detail: 'high',
+                  url: imageUrl,
                 },
               },
             ],
@@ -225,6 +260,7 @@ export default async function handler(req, res) {
         temperature: 0.7,
       })
     console.log('[vision] request body size KB:', (requestBody.length / 1024).toFixed(1))
+    console.log('[vision] using image url type:', useRawBase64 ? 'raw_base64' : 'cloudinary_url')
 
     // 调用 Doubao Vision API（火山引擎，OpenAI 兼容格式）
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
