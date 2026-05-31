@@ -365,7 +365,7 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh'|'en' 
       </div>
       <div className="result-section result-conclusion">
         <div className="result-section-label">{t.conclusionTitle}</div>
-        <div className="result-body">{result.response}</div>
+        <div className="result-body" style={{ whiteSpace: 'pre-wrap' }}>{result.response}</div>
       </div>
       {result.sources && result.sources.length > 0 && (
         <div className="result-sources">
@@ -388,7 +388,7 @@ function ResultCard({ result, lang }: { result: ExtendedResult; lang: 'zh'|'en' 
                   {t.reasoningTitle}
                   <span className="reasoning-note">{t.reasoningNote}</span>
                 </div>
-                <div className="result-body reasoning-body">{result.reasoning}</div>
+                <div className="result-body reasoning-body" style={{ whiteSpace: 'pre-wrap' }}>{result.reasoning}</div>
               </div>
             )}
           </>
@@ -557,10 +557,14 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
           const queryLabel = visionKey === 'palm_reading'
             ? (lang === 'zh' ? '手相分析' : 'Palm Reading')
             : (lang === 'zh' ? '风水照片分析' : 'Feng Shui Photo Analysis')
+          // 手相分析自动引用麻衣神相
+          const visionSources = visionKey === 'palm_reading'
+            ? [{ title: '麻衣神相', excerpt: '掌纹者，天地之文也。手为一身之末，然五脏六腑之气皆达于掌。观掌知命，须察纹路之深浅、长短、曲直、断续，综合判之。' }]
+            : [{ title: '钦定协纪辨方书', excerpt: '方位者，五行所主也。东方木，南方火，西方金，北方水，中央土。居家布局，须顺五行之气，方能化煞迎祥。' }]
           setResults(prev => [{
             module: activeModule, query: queryLabel,
             response: parsed.conclusion, reasoning: parsed.reasoning,
-            sources: [], timestamp: new Date().toISOString(),
+            sources: visionSources, timestamp: new Date().toISOString(),
           }, ...prev])
           setPhotoFile(null); setPhotoPreview('')
         } catch (err) {
@@ -818,11 +822,14 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             <span className="module-subtitle-text">{currentDesc}</span>
           </div>
 
-          <div className="quick-questions">
-            {quickQ.map((q: string, i: number) => (
-              <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>{q}</button>
-            ))}
-          </div>
+          {/* 手相/风水照片模式下隐藏快捷问题，只显示上传区 */}
+          {!isPhotoMode && (
+            <div className="quick-questions">
+              {quickQ.map((q: string, i: number) => (
+                <button key={i} className="quick-q-btn" onClick={() => handleSend(q)}>{q}</button>
+              ))}
+            </div>
+          )}
 
           {/* ── 图片上传区（手相/风水照片模式）── */}
           {isPhotoMode && (
