@@ -287,6 +287,11 @@ export default async function handler(req, res) {
       })
     }
     console.log('[vision] response ok, parsing...')
+    const parsedData = JSON.parse(text)
+    const msg = parsedData.choices?.[0]?.message
+    console.log('[vision] content length:', msg?.content?.length || 0)
+    console.log('[vision] reasoning_content length:', msg?.reasoning_content?.length || 0)
+    console.log('[vision] content preview:', msg?.content?.slice(0, 200))
 
     const data = JSON.parse(text)
     return res.status(200).json(data)
