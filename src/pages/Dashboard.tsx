@@ -898,19 +898,22 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
           )}
 
 
-          <div className="ask-area">
-            <textarea
-              className="ask-textarea"
-              placeholder={t.askPlaceholder}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              rows={3}
-            />
-            <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
-              {loading ? t.sending : t.send}
-            </button>
-          </div>
+          {/* 手相/风水照片模式下隐藏文字输入框 */}
+          {!isPhotoMode && (
+            <div className="ask-area">
+              <textarea
+                className="ask-textarea"
+                placeholder={t.askPlaceholder}
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                rows={3}
+              />
+              <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
+                {loading ? t.sending : t.send}
+              </button>
+            </div>
+          )}
 
           <div className="results-area">
             {/* 手相/风水模式：结果顶部显示重新上传按钮 */}
