@@ -207,10 +207,9 @@ export default async function handler(req, res) {
 
     // 先尝试上传图片到 Cloudinary 获取公开 URL
     // 如果没有配置 Cloudinary，直接用 base64
-    // 火山引擎 vision API 直接接受 base64 字符串（不需要 data: 前缀）
-    // 参考: https://blog.csdn.net/m0_52620144/article/details/147123411
-    let imageUrl = imageBase64  // 纯 base64，不加 data: 前缀
-    let useRawBase64 = true
+    // 火山引擎 vision API 使用完整 data URI 格式
+    let imageUrl = `data:${mimeType};base64,${imageBase64}`
+    let useRawBase64 = false
 
     const cloudinaryUrl = process.env.CLOUDINARY_URL
     const cloudinaryName = process.env.CLOUDINARY_CLOUD_NAME
