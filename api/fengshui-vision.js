@@ -232,8 +232,15 @@ export default async function handler(req, res) {
     const text = await response.text()
     console.log('[vision] response status:', response.status)
     if (!response.ok) {
-      console.error('[vision api error]', text.slice(0, 500))
-      return res.status(500).json({ error: `视觉模型调用失败: ${response.status}`, detail: text.slice(0, 300) })
+      console.error('[vision api error full]', text)
+      // 把完整错误返回给前端方便调试
+      return res.status(500).json({
+        error: `视觉模型调用失败: ${response.status}`,
+        detail: text.slice(0, 500),
+        model: visionModel,
+        // 不要在生产环境暴露 key，只显示前几位
+        keyPrefix: apiKey ? apiKey.slice(0, 8) + '...' : 'missing',
+      })
     }
     console.log('[vision] response ok, parsing...')
 
