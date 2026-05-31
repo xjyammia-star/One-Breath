@@ -6,6 +6,7 @@ export type FeatureKey =
   | 'self_basic' | 'self_deep'
   | 'people_basic' | 'people_deep'
   | 'world_year' | 'world_timing' | 'world_fengshui'
+  | 'palm_reading' | 'fengshui_photo'
 
 // 对方信息（合盘用）
 export interface PartnerProfile {
