@@ -71,6 +71,7 @@ function cleanText(text: string): string {
     .replace(/^Part\s+\d+[：:]\s*.{0,30}\n?/gim, '')
     .replace(/^(推理过程|结论与建议|结论|建议|Reasoning|Conclusion)[：:：]?\s*\n/gm, '')
     .replace(/\n{3,}/g, '\n\n')
+    .replace(/===CONCLUSION===/g, '')
     .trim()
 }
 
