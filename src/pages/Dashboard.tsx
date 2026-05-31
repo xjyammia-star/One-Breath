@@ -527,11 +527,31 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
     setPhotoLoading(true)
     try {
       const visionKey: VisionFeatureKey = activeModule === 'self' ? 'palm_reading' : 'fengshui_photo'
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string
-        const base64 = dataUrl.split(',')[1]
-        const mimeType = photoFile.type || 'image/jpeg'
+      // 压缩图片再传（手机照片可能很大）
+      const compressImage = (file: File, maxSizePx = 1280): Promise<{base64: string, mimeType: string}> => {
+        return new Promise((resolve) => {
+          const img = new Image()
+          const url = URL.createObjectURL(file)
+          img.onload = () => {
+            URL.revokeObjectURL(url)
+            const canvas = document.createElement('canvas')
+            let w = img.width, h = img.height
+            if (w > maxSizePx || h > maxSizePx) {
+              if (w > h) { h = Math.round(h * maxSizePx / w); w = maxSizePx }
+              else       { w = Math.round(w * maxSizePx / h); h = maxSizePx }
+            }
+            canvas.width = w; canvas.height = h
+            canvas.getContext('2d')!.drawImage(img, 0, 0, w, h)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.88)
+            resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' })
+          }
+          img.src = url
+        })
+      }
+
+      const { base64, mimeType } = await compressImage(photoFile)
+      const reader = { onload: null }  // placeholder
+      const processAnalysis = async () => {
         try {
           const parsed = await analyzeWithVision({ imageBase64: base64, imageType: mimeType, featureKey: visionKey, user, bazi, lang })
           const queryLabel = visionKey === 'palm_reading'
@@ -551,7 +571,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
           }
         } finally { setPhotoLoading(false) }
       }
-      reader.readAsDataURL(photoFile)
+      await processAnalysis()
     } catch { setPhotoLoading(false) }
   }
 

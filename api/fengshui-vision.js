@@ -176,8 +176,12 @@ export default async function handler(req, res) {
 
     // 用户提示词
     const userPromptText = featureKey === 'palm_reading'
-      ? (lang === 'zh' ? '请分析这张手相照片，结合我的八字命盘进行综合解读。' : 'Please analyze this palm photo in combination with my Ba Zi chart.')
-      : (lang === 'zh' ? '请分析这张居家照片的风水情况，结合我的八字命盘给出调整建议。' : 'Please analyze the feng shui of this home photo in relation to my Ba Zi chart.')
+      ? (lang === 'zh'
+          ? '请仔细观察图片中的手掌，详细分析以下内容：\n1. 手型（方形/长形/圆形等）\n2. 生命线的走向、长短、深浅、有无断裂\n3. 感情线的走向和特征\n4. 智慧线的走向和特征\n5. 命运线（如可见）\n6. 金星丘、木星丘、太阳丘等丘位的饱满程度\n7. 任何特殊纹路（岛纹、星纹、十字纹等）\n\n请结合图片中实际观察到的手相特征，与我的八字命盘进行综合分析。'
+          : 'Please carefully examine the palm in this image and analyze:\n1. Hand shape type\n2. Life line: direction, length, depth, any breaks\n3. Heart line characteristics\n4. Head line characteristics\n5. Fate line (if visible)\n6. Mount development (Venus, Jupiter, Apollo, etc.)\n7. Any special markings (islands, stars, crosses)\n\nCombine what you actually observe in the palm with my Ba Zi chart for an integrated reading.')
+      : (lang === 'zh'
+          ? '请仔细观察图片中的居家空间，详细分析：\n1. 房间类型和整体布局\n2. 家具摆放位置和朝向\n3. 颜色基调（墙壁、家具、装饰）\n4. 光线情况（自然光/人工光）\n5. 可见的五行元素（木质/金属/水元素/植物等）\n6. 明显的风水问题\n\n请结合图片中实际看到的空间情况，与我的八字命盘进行风水分析，给出具体可操作的建议。'
+          : 'Please carefully examine this home space and analyze:\n1. Room type and overall layout\n2. Furniture placement and orientation\n3. Color palette (walls, furniture, decor)\n4. Lighting (natural/artificial)\n5. Visible Five Elements (wood/metal/water/plants etc.)\n6. Any obvious feng shui issues\n\nCombine what you actually observe in the space with my Ba Zi chart for targeted feng shui recommendations.')
 
     const apiKey = process.env.DEEPSEEK_API_KEY
     const visionModel = process.env.DOUBAO_VISION_MODEL
@@ -185,6 +189,12 @@ export default async function handler(req, res) {
     if (!visionModel) {
       return res.status(500).json({ error: '视觉模型未配置，请联系管理员' })
     }
+
+    // 调试：记录图片大小
+    console.log('[vision] featureKey:', featureKey)
+    console.log('[vision] imageBase64 length:', imageBase64?.length || 0)
+    console.log('[vision] mimeType:', mimeType)
+    console.log('[vision] model:', visionModel)
 
     // 调用 Doubao Vision API（火山引擎，OpenAI 兼容格式）
     const response = await fetch('https://ark.cn-beijing.volces.com/api/v3/chat/completions', {
@@ -201,14 +211,15 @@ export default async function handler(req, res) {
             role: 'user',
             content: [
               {
+                type: 'text',
+                text: userPromptText,
+              },
+              {
                 type: 'image_url',
                 image_url: {
                   url: `data:${mimeType};base64,${imageBase64}`,
+                  detail: 'high',
                 },
-              },
-              {
-                type: 'text',
-                text: userPromptText,
               },
             ],
           },
@@ -219,10 +230,12 @@ export default async function handler(req, res) {
     })
 
     const text = await response.text()
+    console.log('[vision] response status:', response.status)
     if (!response.ok) {
-      console.error('[vision api error]', text)
-      return res.status(500).json({ error: `视觉模型调用失败: ${response.status}`, detail: text })
+      console.error('[vision api error]', text.slice(0, 500))
+      return res.status(500).json({ error: `视觉模型调用失败: ${response.status}`, detail: text.slice(0, 300) })
     }
+    console.log('[vision] response ok, parsing...')
 
     const data = JSON.parse(text)
     return res.status(200).json(data)
