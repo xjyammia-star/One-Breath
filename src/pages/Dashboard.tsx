@@ -832,6 +832,8 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             </div>
           )}
 
+
+
           {/* ── 图片上传区（手相/风水照片模式）── */}
           {isPhotoMode && (
             <div className="photo-upload-area">
@@ -839,7 +841,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
-                capture="environment"
                 style={{ display: 'none' }}
                 onChange={e => {
                   const file = e.target.files?.[0]
@@ -899,21 +900,6 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
               )}
             </div>
           )}
-
-          <div className="ask-area">
-            <textarea
-              className="ask-textarea"
-              placeholder={t.askPlaceholder}
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-              rows={3}
-            />
-            <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
-              {loading ? t.sending : t.send}
-            </button>
-          </div>
-
           <div className="results-area">
             {results.length === 0 && !loading && (
               <div className="results-empty">
@@ -929,3 +915,18 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
     </div>
   )
 }
+
+
+          <div className="ask-area">
+            <textarea
+              className="ask-textarea"
+              placeholder={t.askPlaceholder}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              rows={3}
+            />
+            <button className={`ask-btn${loading ? ' loading' : ''}`} onClick={() => handleSend()} disabled={loading}>
+              {loading ? t.sending : t.send}
+            </button>
+          </div>

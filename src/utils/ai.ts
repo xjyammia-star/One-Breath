@@ -79,7 +79,13 @@ export function parseResponse(raw: string): ParsedResponse {
   const marker = '===CONCLUSION==='
   const idx = cleaned.indexOf(marker)
   if (idx !== -1) {
-    return { reasoning: cleaned.slice(0, idx).trim(), conclusion: cleaned.slice(idx + marker.length).trim(), sources: [] }
+    const conclusion = cleaned.slice(idx + marker.length).trim()
+    const reasoning = cleaned.slice(0, idx).trim()
+    // 如果结论为空，说明分隔符在末尾，把推理内容作为结论
+    if (!conclusion) {
+      return { reasoning: '', conclusion: reasoning, sources: [] }
+    }
+    return { reasoning, conclusion, sources: [] }
   }
   const fallbackMarkers = ['【结论】', '【建议】', '【总结】', 'Conclusion', 'In summary']
   for (const m of fallbackMarkers) {
