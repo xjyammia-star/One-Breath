@@ -567,6 +567,7 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
             sources: visionSources, timestamp: new Date().toISOString(),
           }, ...prev])
           setPhotoFile(null); setPhotoPreview('')
+          if (fileInputRef.current) fileInputRef.current.value = ''
         } catch (err) {
           if (err instanceof ApiError) {
             if (err.code === 'LOGIN_REQUIRED')  { setModal('login_required'); return }
@@ -878,8 +879,10 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
                 </div>
               ) : (
                 <div className="photo-upload-empty" onClick={() => {
-                  if (fileInputRef.current) fileInputRef.current.value = ''
-                  fileInputRef.current?.click()
+                  if (fileInputRef.current) {
+                    fileInputRef.current.value = ''
+                    fileInputRef.current.click()
+                  }
                 }}>
                   <div className="photo-upload-icon">☯</div>
                   <div className="photo-upload-label">
