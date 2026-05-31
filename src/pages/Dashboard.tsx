@@ -913,6 +913,19 @@ export default function Dashboard({ lang, setLang, user, initialModule, onBack, 
           </div>
 
           <div className="results-area">
+            {/* 手相/风水模式：结果顶部显示重新上传按钮 */}
+            {isPhotoMode && results.length > 0 && !loading && (
+              <button className="photo-reupload-btn" onClick={() => {
+                if (fileInputRef.current) {
+                  fileInputRef.current.value = ''
+                  fileInputRef.current.click()
+                }
+              }}>
+                {activeModule === 'self'
+                  ? (lang === 'zh' ? '+ 上传新手相照片' : '+ Upload new palm photo')
+                  : (lang === 'zh' ? '+ 上传新居家照片' : '+ Upload new home photo')}
+              </button>
+            )}
             {results.length === 0 && !loading && (
               <div className="results-empty">
                 <div className="empty-glyph">☯</div>
